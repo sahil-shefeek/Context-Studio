@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
+import { get_encoding } from "@dqbd/tiktoken";
 
 // Types matching the Rust FileNode structure
 export interface FileNode {
@@ -9,6 +10,8 @@ export interface FileNode {
   children?: FileNode[];
 }
 
+export type Theme = "dark" | "light";
+
 interface AppState {
   // State
   rootPath: string | null;
@@ -16,6 +19,10 @@ interface AppState {
   selectedPaths: Set<string>;
   isScanning: boolean;
   error: string | null;
+  theme: Theme;
+  generatedOutput: string;
+  tokenCount: number;
+  isGenerating: boolean;
 
   // Actions
   scanDirectory: (path: string) => Promise<void>;
@@ -23,6 +30,8 @@ interface AppState {
   selectAll: () => void;
   deselectAll: () => void;
   clearFileTree: () => void;
+  toggleTheme: () => void;
+  generateContext: () => Promise<void>;
 }
 
 // Helper to get all paths from a node (including children)
@@ -50,6 +59,92 @@ function getAllFilePaths(node: FileNode): string[] {
   return paths;
 }
 
+// Generate tree structure text similar to the 'tree' command
+function generateTreeText(node: FileNode, prefix: string = "", isLast: boolean = true, isRoot: boolean = true): string {
+  let result = "";
+  
+  if (isRoot) {
+    result += node.name + "\n";
+  } else {
+    result += prefix + (isLast ? "└── " : "├── ") + node.name + "\n";
+  }
+
+  if (node.children && node.children.length > 0) {
+    const childPrefix = isRoot ? "" : prefix + (isLast ? "    " : "│   ");
+    node.children.forEach((child, index) => {
+      const isLastChild = index === node.children!.length - 1;
+      result += generateTreeText(child, childPrefix, isLastChild, false);
+    });
+  }
+
+  return result;
+}
+
+// Get language identifier from file extension for syntax highlighting
+function getLanguageId(filePath: string): string {
+  const ext = filePath.split('.').pop()?.toLowerCase() || "";
+  const languageMap: Record<string, string> = {
+    ts: "typescript",
+    tsx: "tsx",
+    js: "javascript",
+    jsx: "jsx",
+    rs: "rust",
+    py: "python",
+    rb: "ruby",
+    go: "go",
+    java: "java",
+    kt: "kotlin",
+    swift: "swift",
+    c: "c",
+    cpp: "cpp",
+    h: "c",
+    hpp: "cpp",
+    cs: "csharp",
+    php: "php",
+    html: "html",
+    css: "css",
+    scss: "scss",
+    less: "less",
+    json: "json",
+    yaml: "yaml",
+    yml: "yaml",
+    xml: "xml",
+    md: "markdown",
+    sql: "sql",
+    sh: "bash",
+    bash: "bash",
+    zsh: "zsh",
+    toml: "toml",
+    ini: "ini",
+    env: "shell",
+    dockerfile: "dockerfile",
+    vue: "vue",
+    svelte: "svelte",
+  };
+  return languageMap[ext] || ext;
+}
+
+// Count tokens using tiktoken
+function countTokens(text: string): number {
+  try {
+    const enc = get_encoding("cl100k_base");
+    const tokens = enc.encode(text);
+    const count = tokens.length;
+    enc.free();
+    return count;
+  } catch {
+    // Fallback: rough estimate (1 token ≈ 4 chars)
+    return Math.ceil(text.length / 4);
+  }
+}
+
+// Get initial theme from system preference or localStorage
+function getInitialTheme(): Theme {
+  const saved = localStorage.getItem("theme") as Theme | null;
+  if (saved) return saved;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   // Initial state
   rootPath: null,
@@ -57,6 +152,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedPaths: new Set(),
   isScanning: false,
   error: null,
+  theme: getInitialTheme(),
+  generatedOutput: "",
+  tokenCount: 0,
+  isGenerating: false,
 
   // Actions
   scanDirectory: async (path: string) => {
@@ -68,6 +167,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         fileTree: tree,
         selectedPaths: new Set(),
         isScanning: false,
+        generatedOutput: "",
+        tokenCount: 0,
       });
     } catch (err) {
       set({
@@ -78,7 +179,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   togglePath: (path: string, node: FileNode) => {
-    const { selectedPaths } = get();
+    const { selectedPaths, generateContext } = get();
     const newSelected = new Set(selectedPaths);
     
     // Get all paths for this node (if directory, includes all children)
@@ -100,18 +201,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     
     set({ selectedPaths: newSelected });
+    
+    // Trigger context regeneration
+    generateContext();
   },
 
   selectAll: () => {
-    const { fileTree } = get();
+    const { fileTree, generateContext } = get();
     if (fileTree) {
       const allPaths = getAllPaths(fileTree);
       set({ selectedPaths: new Set(allPaths) });
+      generateContext();
     }
   },
 
   deselectAll: () => {
-    set({ selectedPaths: new Set() });
+    set({ selectedPaths: new Set(), generatedOutput: "", tokenCount: 0 });
   },
 
   clearFileTree: () => {
@@ -120,6 +225,72 @@ export const useAppStore = create<AppState>((set, get) => ({
       fileTree: null,
       selectedPaths: new Set(),
       error: null,
+      generatedOutput: "",
+      tokenCount: 0,
     });
+  },
+
+  toggleTheme: () => {
+    const { theme } = get();
+    const newTheme = theme === "dark" ? "light" : "dark";
+    localStorage.setItem("theme", newTheme);
+    document.documentElement.classList.toggle("dark", newTheme === "dark");
+    set({ theme: newTheme });
+  },
+
+  generateContext: async () => {
+    const { fileTree, selectedPaths, rootPath, isGenerating } = get();
+    
+    if (!fileTree || selectedPaths.size === 0) {
+      set({ generatedOutput: "", tokenCount: 0 });
+      return;
+    }
+
+    // Prevent concurrent generation
+    if (isGenerating) return;
+    
+    set({ isGenerating: true });
+
+    try {
+      // Get only file paths (not directories)
+      const allFilePaths = getAllFilePaths(fileTree);
+      const selectedFilePaths = allFilePaths.filter(p => selectedPaths.has(p));
+
+      if (selectedFilePaths.length === 0) {
+        set({ generatedOutput: "", tokenCount: 0, isGenerating: false });
+        return;
+      }
+
+      // Generate tree structure
+      const treeText = generateTreeText(fileTree);
+
+      // Read file contents from Rust backend
+      const contents = await invoke<Record<string, string>>("read_files_contents", {
+        filePaths: selectedFilePaths,
+      });
+
+      // Build the output
+      let output = "# Project Structure\n\n```\n" + treeText + "```\n\n---\n\n# File Contents\n\n";
+
+      for (const filePath of selectedFilePaths) {
+        const content = contents[filePath] || "[Error reading file]";
+        const relativePath = rootPath ? filePath.replace(rootPath, "").replace(/^\//, "") : filePath;
+        const langId = getLanguageId(filePath);
+        
+        output += `## File: ${relativePath}\n\n\`\`\`${langId}\n${content}\n\`\`\`\n\n`;
+      }
+
+      // Count tokens
+      const tokens = countTokens(output);
+
+      set({ generatedOutput: output, tokenCount: tokens, isGenerating: false });
+    } catch (err) {
+      console.error("Failed to generate context:", err);
+      set({ 
+        generatedOutput: `Error generating context: ${err}`, 
+        tokenCount: 0, 
+        isGenerating: false 
+      });
+    }
   },
 }));

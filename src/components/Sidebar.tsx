@@ -55,21 +55,21 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
   return (
     <div>
       <div
-        className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[#1a1a24] cursor-pointer text-[#a1a1aa] text-sm group"
+        className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[var(--bg-tertiary)] cursor-pointer text-[var(--text-secondary)] text-sm group"
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
       >
         {/* Checkbox */}
         <button
           onClick={handleToggle}
-          className="flex-shrink-0 hover:text-[#3b82f6] transition-colors"
+          className="flex-shrink-0 hover:text-[var(--accent-color)] transition-colors"
         >
           <CheckboxIcon
             className={`w-4 h-4 ${
               isSelected
-                ? "text-[#3b82f6]"
+                ? "text-[var(--accent-color)]"
                 : isPartiallySelected
-                ? "text-[#3b82f6]/60"
-                : "text-[#4a4a56]"
+                ? "text-[var(--accent-color)] opacity-60"
+                : "text-[var(--text-muted)]"
             }`}
           />
         </button>
@@ -78,7 +78,7 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
         {node.is_dir ? (
           <button
             onClick={handleExpand}
-            className="flex-shrink-0 hover:text-[#e4e4e7] transition-colors"
+            className="flex-shrink-0 hover:text-[var(--text-primary)] transition-colors"
           >
             {isExpanded ? (
               <ChevronDown className="w-4 h-4" />
@@ -93,12 +93,12 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
         {/* Icon */}
         {node.is_dir ? (
           isExpanded ? (
-            <FolderOpen className="w-4 h-4 text-[#3b82f6] flex-shrink-0" />
+            <FolderOpen className="w-4 h-4 text-[var(--accent-color)] flex-shrink-0" />
           ) : (
-            <Folder className="w-4 h-4 text-[#3b82f6] flex-shrink-0" />
+            <Folder className="w-4 h-4 text-[var(--accent-color)] flex-shrink-0" />
           )
         ) : (
-          <File className="w-4 h-4 text-[#6b7280] flex-shrink-0" />
+          <File className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0" />
         )}
 
         {/* Name */}
@@ -124,7 +124,7 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
 }
 
 export function Sidebar() {
-  const { fileTree, rootPath, isScanning, error, scanDirectory, selectAll, deselectAll, selectedPaths } =
+  const { fileTree, rootPath, isScanning, error, scanDirectory, selectedPaths } =
     useAppStore();
 
   const handleOpenFolder = async () => {
@@ -146,12 +146,12 @@ export function Sidebar() {
   const selectedCount = selectedPaths.size;
 
   return (
-    <aside className="w-72 min-w-72 bg-[#12121a] border-r border-[#2a2a36] flex flex-col h-screen">
+    <aside className="w-72 min-w-72 bg-[var(--bg-secondary)] border-r border-[var(--border-color)] flex flex-col h-screen">
       {/* Header */}
-      <div className="p-3 border-b border-[#2a2a36]">
+      <div className="p-3 border-b border-[var(--border-color)]">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 text-[#e4e4e7]">
-            <FolderTree className="w-5 h-5 text-[#3b82f6]" />
+          <div className="flex items-center gap-2 text-[var(--text-primary)]">
+            <FolderTree className="w-5 h-5 text-[var(--accent-color)]" />
             <span className="font-semibold text-sm">File Tree</span>
           </div>
         </div>
@@ -160,7 +160,7 @@ export function Sidebar() {
         <button
           onClick={handleOpenFolder}
           disabled={isScanning}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
         >
           {isScanning ? (
             <>
@@ -176,42 +176,28 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Selection controls */}
+      {/* Selection info */}
       {fileTree && (
-        <div className="px-3 py-2 border-b border-[#2a2a36] flex items-center justify-between">
-          <span className="text-xs text-[#a1a1aa]">
+        <div className="px-3 py-2 border-b border-[var(--border-color)] flex items-center">
+          <span className="text-xs text-[var(--text-secondary)]">
             {selectedCount} selected
           </span>
-          <div className="flex gap-2">
-            <button
-              onClick={selectAll}
-              className="text-xs text-[#3b82f6] hover:text-[#60a5fa] transition-colors"
-            >
-              All
-            </button>
-            <button
-              onClick={deselectAll}
-              className="text-xs text-[#a1a1aa] hover:text-[#e4e4e7] transition-colors"
-            >
-              None
-            </button>
-          </div>
         </div>
       )}
 
       {/* File Tree Content */}
       <div className="flex-1 overflow-y-auto">
         {error && (
-          <div className="p-3 m-2 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+          <div className="p-3 m-2 rounded bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-400 text-xs">
             {error}
           </div>
         )}
 
         {!fileTree && !isScanning && !error && (
           <div className="flex flex-col items-center justify-center h-full text-center p-4">
-            <Folder className="w-12 h-12 text-[#2a2a36] mb-3" />
-            <p className="text-[#a1a1aa] text-sm">No folder selected</p>
-            <p className="text-[#6b7280] text-xs mt-1">
+            <Folder className="w-12 h-12 text-[var(--border-color)] mb-3" />
+            <p className="text-[var(--text-secondary)] text-sm">No folder selected</p>
+            <p className="text-[var(--text-muted)] text-xs mt-1">
               Click "Open Folder" to get started
             </p>
           </div>
@@ -221,7 +207,7 @@ export function Sidebar() {
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-[#2a2a36] text-xs text-[#a1a1aa]">
+      <div className="p-3 border-t border-[var(--border-color)] text-xs text-[var(--text-secondary)]">
         {rootPath ? (
           <span className="truncate block" title={rootPath}>
             {rootPath}

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -128,12 +129,59 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+/// Check if a file is likely binary by reading the first 8KB and looking for null bytes
+fn is_binary_file(path: &Path) -> bool {
+    if let Ok(data) = fs::read(path) {
+        // Check the first 8KB for null bytes (common in binary files)
+        let check_size = std::cmp::min(8192, data.len());
+        data[..check_size].contains(&0)
+    } else {
+        false
+    }
+}
+
+/// Read contents of multiple files, returning a map of path -> content
+/// Binary files are returned with a placeholder
+#[tauri::command]
+fn read_files_contents(file_paths: Vec<String>) -> Result<HashMap<String, String>, String> {
+    let mut contents: HashMap<String, String> = HashMap::new();
+
+    for file_path in file_paths {
+        let path = Path::new(&file_path);
+
+        if !path.exists() {
+            contents.insert(file_path, "[File not found]".to_string());
+            continue;
+        }
+
+        if !path.is_file() {
+            continue; // Skip directories
+        }
+
+        if is_binary_file(path) {
+            contents.insert(file_path, "[Binary File]".to_string());
+            continue;
+        }
+
+        match fs::read_to_string(path) {
+            Ok(content) => {
+                contents.insert(file_path, content);
+            }
+            Err(e) => {
+                contents.insert(file_path, format!("[Error reading file: {}]", e));
+            }
+        }
+    }
+
+    Ok(contents)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![greet, get_file_tree])
+        .invoke_handler(tauri::generate_handler![greet, get_file_tree, read_files_contents])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

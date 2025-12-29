@@ -12,10 +12,12 @@ import {
   MinusSquare,
   Eye,
   PanelLeftClose,
+  X,
+  RefreshCw,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAppStore, FileNode } from "../store/appStore";
-import { Badge } from "./ui";
+import { Badge, Button } from "./ui";
 
 // FileTreeNode component for recursive rendering
 interface FileTreeNodeProps {
@@ -25,7 +27,7 @@ interface FileTreeNodeProps {
 
 function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(depth < 2); // Auto-expand first 2 levels
-  const { selectedPaths, togglePath, openFilePreview, getFileTokenPercentage } = useAppStore();
+  const { selectedPaths, togglePath, openFilePreview, getFileTokenPercentage, getFolderTokenPercentage } = useAppStore();
 
   const isSelected = selectedPaths.has(node.path);
   
@@ -37,8 +39,10 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
   
   const isPartiallySelected = !isSelected && hasSelectedChildren;
 
-  // Get token percentage for files
-  const tokenPercentage = !node.is_dir && isSelected ? getFileTokenPercentage(node.path) : 0;
+  // Get token percentage for files or folders
+  const tokenPercentage = node.is_dir 
+    ? (isSelected || isPartiallySelected ? getFolderTokenPercentage(node) : 0)
+    : (isSelected ? getFileTokenPercentage(node.path) : 0);
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -141,6 +145,17 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
           </Badge>
         )}
 
+        {/* Token percentage badge for folders with selected children */}
+        {node.is_dir && (isSelected || isPartiallySelected) && tokenPercentage > 0 && (
+          <Badge 
+            variant={getBadgeVariant(tokenPercentage)} 
+            className="ml-1 opacity-80"
+            title={`This folder contributes ${tokenPercentage}% of total tokens`}
+          >
+            {tokenPercentage}%
+          </Badge>
+        )}
+
         {/* Eye icon for file preview - only for files */}
         {!node.is_dir && (
           <button
@@ -166,7 +181,7 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
 }
 
 export function Sidebar() {
-  const { fileTree, rootPath, isScanning, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar } =
+  const { fileTree, rootPath, isScanning, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar, clearFileTree } =
     useAppStore();
 
   const handleOpenFolder = async () => {
@@ -185,7 +200,12 @@ export function Sidebar() {
     }
   };
 
+  const handleCloseFolder = () => {
+    clearFileTree();
+  };
+
   const selectedCount = selectedPaths.size;
+  const projectName = rootPath ? rootPath.split('/').pop() || rootPath : null;
 
   // When collapsed, hide sidebar entirely (expand button moved to MainContent header)
   if (sidebarCollapsed) {
@@ -201,33 +221,76 @@ export function Sidebar() {
             <FolderTree className="w-5 h-5 text-[var(--accent-color)]" />
             <span className="font-semibold text-sm">File Tree</span>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={toggleSidebar}
-            className="p-1.5 rounded hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             title="Collapse sidebar"
           >
             <PanelLeftClose className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
 
-        {/* Open Folder Button */}
-        <button
-          onClick={handleOpenFolder}
-          disabled={isScanning}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
-        >
-          {isScanning ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Scanning...</span>
-            </>
-          ) : (
-            <>
-              <FolderOpen className="w-4 h-4" />
-              <span>Open Folder</span>
-            </>
-          )}
-        </button>
+        {/* Contextual buttons based on project state */}
+        {!fileTree ? (
+          // No folder open - show large Open Folder button
+          <Button
+            variant="default"
+            className="w-full"
+            onClick={handleOpenFolder}
+            disabled={isScanning}
+          >
+            {isScanning ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Scanning...</span>
+              </>
+            ) : (
+              <>
+                <FolderOpen className="w-4 h-4" />
+                <span>Open Folder</span>
+              </>
+            )}
+          </Button>
+        ) : (
+          // Folder is open - show project name with Close and Change buttons
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 p-2 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)]">
+              <FolderOpen className="w-4 h-4 text-[var(--accent-color)] flex-shrink-0" />
+              <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1" title={rootPath || ""}>
+                {projectName}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleCloseFolder}
+                title="Close folder"
+                className="text-[var(--text-muted)] hover:text-red-500"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={handleOpenFolder}
+              disabled={isScanning}
+            >
+              {isScanning ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Scanning...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Change Folder</span>
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Selection info */}

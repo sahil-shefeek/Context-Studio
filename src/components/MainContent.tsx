@@ -1,6 +1,6 @@
-import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck, PanelLeft, Clock } from "lucide-react";
+import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck, PanelLeft, Clock, Pencil, Sparkles } from "lucide-react";
 import { useAppStore } from "../store/appStore";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "./ui";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
 
@@ -21,9 +21,29 @@ export function MainContent() {
     openRecentFolder,
   } = useAppStore();
   const [copied, setCopied] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [wasGenerated, setWasGenerated] = useState(false);
 
   const hasOutput = generatedOutput.length > 0;
   const hasProject = !!fileTree;
+
+  // Track when content is generated vs edited
+  useEffect(() => {
+    if (isGenerating) {
+      setWasGenerated(true);
+      setIsEditing(false);
+    }
+  }, [isGenerating]);
+
+  // Get dynamic status message
+  const getStatusMessage = () => {
+    if (!hasProject) return "Ready to explore";
+    if (isGenerating) return "Generating...";
+    if (isEditing) return "Editing...";
+    if (hasOutput && wasGenerated) return "Context ready";
+    if (hasOutput) return "Modified";
+    return "Select files to begin";
+  };
 
   const handleCopy = async () => {
     if (!generatedOutput) return;
@@ -52,6 +72,8 @@ export function MainContent() {
   // Handle manual text edits - updates counts automatically
   const handleOutputChange = useCallback((value: string) => {
     setGeneratedOutput(value);
+    setIsEditing(true);
+    setWasGenerated(false);
   }, [setGeneratedOutput]);
 
   // Format token count with commas
@@ -148,10 +170,10 @@ export function MainContent() {
           </div>
         )}
 
-        <div className="h-full">
+        <div className="h-full transition-all duration-300 ease-in-out">
           {!fileTree ? (
             // Empty state - Welcome screen
-            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
+            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center animate-in fade-in duration-300">
               <div className="w-20 h-20 rounded-2xl bg-[var(--accent-color)]/10 flex items-center justify-center mb-6">
                 <FolderOpen className="w-10 h-10 text-[var(--accent-color)]" />
               </div>
@@ -191,7 +213,7 @@ export function MainContent() {
             </div>
           ) : !hasOutput ? (
             // Folder loaded but no selection
-            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
+            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center animate-in fade-in duration-300">
               <FileText className="w-16 h-16 text-[var(--border-color)] mb-4" />
               <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">Select Files</h2>
               <p className="text-[var(--text-secondary)] max-w-md">
@@ -201,7 +223,7 @@ export function MainContent() {
             </div>
           ) : (
             // Show generated output - CodeMirror editor
-            <div className="h-full flex flex-col">
+            <div className="h-full flex flex-col animate-in fade-in duration-300">
               <div className="flex-1 bg-[var(--code-bg)] rounded-lg border border-[var(--border-color)] overflow-hidden">
                 <CodeMirrorEditor
                   value={generatedOutput}
@@ -220,13 +242,20 @@ export function MainContent() {
 
       {/* Status Bar */}
       <footer className="px-6 py-2 border-t border-[var(--border-color)] flex items-center justify-between text-xs text-[var(--text-secondary)]">
-        <span>{hasOutput ? "Context generated" : "Ready"}</span>
-        <div className="flex items-center gap-4">
-          <span>{generatedOutput.length.toLocaleString()} chars</span>
-          <span className="px-2 py-0.5 rounded bg-[var(--accent-color)] text-white font-medium">
-            {formatTokens(tokenCount)} tokens
-          </span>
+        <div className="flex items-center gap-2">
+          {isGenerating && <Loader2 className="w-3 h-3 animate-spin" />}
+          {isEditing && !isGenerating && <Pencil className="w-3 h-3" />}
+          {hasOutput && wasGenerated && !isEditing && !isGenerating && <Sparkles className="w-3 h-3 text-[var(--accent-color)]" />}
+          <span>{getStatusMessage()}</span>
         </div>
+        {hasProject && (
+          <div className="flex items-center gap-4">
+            <span>{generatedOutput.length.toLocaleString()} chars</span>
+            <span className="px-2 py-0.5 rounded bg-[var(--accent-color)] text-white font-medium">
+              {formatTokens(tokenCount)} tokens
+            </span>
+          </div>
+        )}
       </footer>
     </main>
   );

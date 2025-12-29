@@ -55,6 +55,7 @@ interface AppState {
   loadRecentFolders: () => void;
   openRecentFolder: (path: string) => Promise<void>;
   getFileTokenPercentage: (path: string) => number;
+  getFolderTokenPercentage: (node: FileNode) => number;
 }
 
 // Helper to get all paths from a node (including children)
@@ -519,5 +520,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (tokenCount === 0) return 0;
     const fileTokens = fileTokenMap.get(path) || 0;
     return Math.round((fileTokens / tokenCount) * 100);
+  },
+
+  getFolderTokenPercentage: (node: FileNode) => {
+    const { fileTokenMap, tokenCount, selectedPaths } = get();
+    if (tokenCount === 0 || !node.is_dir) return 0;
+    
+    // Get all file paths under this folder that are selected
+    const allFilePaths = getAllFilePaths(node);
+    const selectedFilePaths = allFilePaths.filter(p => selectedPaths.has(p));
+    
+    // Sum up tokens for all selected files in this folder
+    let folderTokens = 0;
+    for (const filePath of selectedFilePaths) {
+      folderTokens += fileTokenMap.get(filePath) || 0;
+    }
+    
+    return Math.round((folderTokens / tokenCount) * 100);
   },
 }));

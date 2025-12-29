@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, placeholder as cmPlaceholder } from "@codemirror/view";
 import { EditorState, Extension } from "@codemirror/state";
 import { markdown } from "@codemirror/lang-markdown";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -89,13 +89,6 @@ const darkThemeOverrides = EditorView.theme({
   },
 }, { dark: true });
 
-// Placeholder extension
-function placeholder(text: string): Extension {
-  return EditorView.contentAttributes.of({
-    "data-placeholder": text,
-  });
-}
-
 export function CodeMirrorEditor({ 
   value, 
   onChange, 
@@ -143,9 +136,9 @@ export function CodeMirrorEditor({
       extensions.push(lightTheme);
     }
 
-    // Add placeholder
+    // Add placeholder using CodeMirror's built-in placeholder extension
     if (placeholderText) {
-      extensions.push(placeholder(placeholderText));
+      extensions.push(cmPlaceholder(placeholderText));
     }
 
     const state = EditorState.create({

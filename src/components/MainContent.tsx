@@ -1,7 +1,7 @@
-import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck, PanelLeft, Clock, Pencil, Sparkles, X } from "lucide-react";
+import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck, PanelLeft, Clock, X, ChevronDown } from "lucide-react";
 import { useAppStore } from "../store/appStore";
-import { useState, useCallback, useEffect } from "react";
-import { Button, Select } from "./ui";
+import { useState, useCallback } from "react";
+import { Button, Select, Badge } from "./ui";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
 
 export function MainContent() {
@@ -26,11 +26,14 @@ export function MainContent() {
     getOutputWithTemplate,
   } = useAppStore();
   const [copied, setCopied] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [wasGenerated, setWasGenerated] = useState(false);
+  const [isTemplateExpanded, setIsTemplateExpanded] = useState(true);
 
   const hasOutput = generatedOutput.length > 0;
   const hasProject = !!fileTree;
+
+  // Get selected template
+  const selectedTemplate = promptTemplates.find(t => t.id === selectedTemplateId);
+  const hasActiveTemplate = selectedTemplate && selectedTemplate.id !== "none" && selectedTemplate.text;
 
   // Convert templates to select options
   const templateOptions = promptTemplates.map(t => ({
@@ -38,22 +41,11 @@ export function MainContent() {
     label: t.name,
   }));
 
-  // Track when content is generated vs edited
-  useEffect(() => {
-    if (isGenerating) {
-      setWasGenerated(true);
-      setIsEditing(false);
-    }
-  }, [isGenerating]);
-
-  // Get dynamic status message
+  // Get simple status message
   const getStatusMessage = () => {
-    if (!hasProject) return "Ready to explore";
-    if (isGenerating) return "Generating...";
-    if (isEditing) return "Editing...";
-    if (hasOutput && wasGenerated) return "Context ready";
-    if (hasOutput) return "Modified";
-    return "Select files to begin";
+    if (!hasProject) return "Ready";
+    if (hasOutput) return "Context Generated";
+    return "Ready";
   };
 
   const handleCopy = async () => {
@@ -87,8 +79,6 @@ export function MainContent() {
   // Handle manual text edits - updates counts automatically
   const handleOutputChange = useCallback((value: string) => {
     setGeneratedOutput(value);
-    setIsEditing(true);
-    setWasGenerated(false);
   }, [setGeneratedOutput]);
 
   // Format token count with commas
@@ -117,9 +107,6 @@ export function MainContent() {
           )}
           <FileText className="w-5 h-5 text-[var(--accent-color)]" />
           <h1 className="text-lg font-semibold text-[var(--text-primary)]">{headerTitle}</h1>
-          {isGenerating && (
-            <Loader2 className="w-4 h-4 animate-spin text-[var(--accent-color)]" />
-          )}
         </div>
         <div className="flex items-center gap-2">
           {/* Prompt Template dropdown - only show when project is open */}
@@ -262,9 +249,34 @@ export function MainContent() {
               </p>
             </div>
           ) : (
-            // Show generated output - CodeMirror editor
-            <div className="h-full flex flex-col animate-in fade-in duration-300">
-              <div className="flex-1 bg-[var(--code-bg)] rounded-lg border border-[var(--border-color)] overflow-hidden">
+            // Show generated output - CodeMirror editor with optional template accordion
+            <div className="h-full flex flex-col animate-in fade-in duration-300 gap-3">
+              {/* Accordion: Active Prompt Template */}
+              {hasActiveTemplate && (
+                <div className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] overflow-hidden flex-shrink-0">
+                  <button
+                    onClick={() => setIsTemplateExpanded(!isTemplateExpanded)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-[var(--bg-tertiary)] transition-colors"
+                  >
+                    <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                      System Prompt Template
+                    </span>
+                    <ChevronDown 
+                      className={`w-4 h-4 text-[var(--text-muted)] transition-transform duration-200 ${isTemplateExpanded ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  {isTemplateExpanded && (
+                    <div className="px-4 py-3 border-t border-[var(--border-color)] bg-[var(--bg-tertiary)]/50">
+                      <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">
+                        {selectedTemplate?.text}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* CodeMirror Editor */}
+              <div className="flex-1 bg-[var(--code-bg)] rounded-lg border border-[var(--border-color)] overflow-hidden min-h-0">
                 <CodeMirrorEditor
                   value={generatedOutput}
                   onChange={handleOutputChange}
@@ -272,7 +284,7 @@ export function MainContent() {
                   placeholder="Generated context will appear here..."
                 />
               </div>
-              <p className="text-xs text-[var(--text-muted)] mt-2 text-center">
+              <p className="text-xs text-[var(--text-muted)] text-center flex-shrink-0">
                 💡 You can edit this text before copying. Character and token counts update automatically.
               </p>
             </div>
@@ -281,19 +293,12 @@ export function MainContent() {
       </div>
 
       {/* Status Bar */}
-      <footer className="px-6 py-2 border-t border-[var(--border-color)] flex items-center justify-between text-xs text-[var(--text-secondary)]">
-        <div className="flex items-center gap-2">
-          {isGenerating && <Loader2 className="w-3 h-3 animate-spin" />}
-          {isEditing && !isGenerating && <Pencil className="w-3 h-3" />}
-          {hasOutput && wasGenerated && !isEditing && !isGenerating && <Sparkles className="w-3 h-3 text-[var(--accent-color)]" />}
-          <span>{getStatusMessage()}</span>
-        </div>
+      <footer className="px-6 py-2 border-t border-[var(--border-color)] flex items-center justify-between text-xs">
+        <span className="text-[var(--text-muted)]">{getStatusMessage()}</span>
         {hasProject && (
-          <div className="flex items-center gap-4">
-            <span>{generatedOutput.length.toLocaleString()} chars</span>
-            <span className="px-2 py-0.5 rounded bg-[var(--accent-color)] text-white font-medium">
-              {formatTokens(tokenCount)} tokens
-            </span>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{generatedOutput.length.toLocaleString()} chars</Badge>
+            <Badge variant="default">{formatTokens(tokenCount)} tokens</Badge>
           </div>
         )}
       </footer>

@@ -10,6 +10,10 @@ import {
   CheckSquare,
   Square,
   MinusSquare,
+  Eye,
+  PanelLeftClose,
+  PanelLeft,
+  Menu,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAppStore, FileNode } from "../store/appStore";
@@ -22,7 +26,7 @@ interface FileTreeNodeProps {
 
 function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(depth < 2); // Auto-expand first 2 levels
-  const { selectedPaths, togglePath } = useAppStore();
+  const { selectedPaths, togglePath, openFilePreview } = useAppStore();
 
   const isSelected = selectedPaths.has(node.path);
   
@@ -42,6 +46,13 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
   const handleExpand = () => {
     if (node.is_dir) {
       setIsExpanded(!isExpanded);
+    }
+  };
+
+  const handlePreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!node.is_dir) {
+      openFilePreview(node.path, node.name);
     }
   };
 
@@ -109,6 +120,17 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
         >
           {node.name}
         </span>
+
+        {/* Eye icon for file preview - only for files */}
+        {!node.is_dir && (
+          <button
+            onClick={handlePreview}
+            className="flex-shrink-0 opacity-0 group-hover:opacity-100 hover:text-[var(--accent-color)] transition-all ml-1"
+            title="Preview file"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Children */}
@@ -124,7 +146,7 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
 }
 
 export function Sidebar() {
-  const { fileTree, rootPath, isScanning, error, scanDirectory, selectedPaths } =
+  const { fileTree, rootPath, isScanning, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar } =
     useAppStore();
 
   const handleOpenFolder = async () => {
@@ -145,8 +167,44 @@ export function Sidebar() {
 
   const selectedCount = selectedPaths.size;
 
+  // Collapsed sidebar - thin rail with expand button
+  if (sidebarCollapsed) {
+    return (
+      <aside className="w-12 min-w-12 bg-[var(--bg-secondary)] border-r border-[var(--border-color)] flex flex-col h-full">
+        <div className="p-2 flex flex-col items-center gap-2">
+          <button
+            onClick={toggleSidebar}
+            className="p-2 rounded hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            title="Expand sidebar"
+          >
+            <PanelLeft className="w-5 h-5" />
+          </button>
+          <div className="w-full h-px bg-[var(--border-color)]" />
+          <button
+            onClick={handleOpenFolder}
+            disabled={isScanning}
+            className="p-2 rounded bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+            title="Open folder"
+          >
+            {isScanning ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <FolderOpen className="w-5 h-5" />
+            )}
+          </button>
+        </div>
+        {fileTree && (
+          <div className="flex-1 flex flex-col items-center py-2 text-xs text-[var(--text-muted)]">
+            <FolderTree className="w-4 h-4 text-[var(--accent-color)]" />
+            <span className="mt-1 writing-mode-vertical">{selectedCount}</span>
+          </div>
+        )}
+      </aside>
+    );
+  }
+
   return (
-    <aside className="w-72 min-w-72 bg-[var(--bg-secondary)] border-r border-[var(--border-color)] flex flex-col h-screen">
+    <aside className="w-72 min-w-72 bg-[var(--bg-secondary)] border-r border-[var(--border-color)] flex flex-col h-full">
       {/* Header */}
       <div className="p-3 border-b border-[var(--border-color)]">
         <div className="flex items-center justify-between mb-3">
@@ -154,6 +212,13 @@ export function Sidebar() {
             <FolderTree className="w-5 h-5 text-[var(--accent-color)]" />
             <span className="font-semibold text-sm">File Tree</span>
           </div>
+          <button
+            onClick={toggleSidebar}
+            className="p-1.5 rounded hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            title="Collapse sidebar"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Open Folder Button */}

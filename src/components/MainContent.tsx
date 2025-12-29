@@ -1,9 +1,19 @@
-import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon } from "lucide-react";
+import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck } from "lucide-react";
 import { useAppStore } from "../store/appStore";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 export function MainContent() {
-  const { fileTree, generatedOutput, tokenCount, isGenerating, theme, toggleTheme } = useAppStore();
+  const { 
+    fileTree, 
+    generatedOutput, 
+    tokenCount, 
+    isGenerating, 
+    theme, 
+    toggleTheme, 
+    setGeneratedOutput,
+    isPrivacyFilterEnabled,
+    togglePrivacyFilter 
+  } = useAppStore();
   const [copied, setCopied] = useState(false);
 
   const hasOutput = generatedOutput.length > 0;
@@ -32,13 +42,18 @@ export function MainContent() {
     URL.revokeObjectURL(url);
   };
 
+  // Handle manual text edits - updates counts automatically
+  const handleOutputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setGeneratedOutput(e.target.value);
+  }, [setGeneratedOutput]);
+
   // Format token count with commas
   const formatTokens = (count: number) => {
     return count.toLocaleString();
   };
 
   return (
-    <main className="flex-1 flex flex-col h-screen bg-[var(--bg-primary)]">
+    <main className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] relative">
       {/* Header */}
       <header className="px-6 py-4 border-b border-[var(--border-color)] flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -49,6 +64,19 @@ export function MainContent() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Privacy Filter toggle */}
+          <button
+            onClick={togglePrivacyFilter}
+            className={`p-2 rounded transition-colors ${
+              isPrivacyFilterEnabled 
+                ? "bg-green-500/20 text-green-500 hover:bg-green-500/30" 
+                : "bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            }`}
+            title={isPrivacyFilterEnabled ? "Privacy filter enabled - secrets are masked" : "Enable privacy filter to mask secrets"}
+          >
+            {isPrivacyFilterEnabled ? <ShieldCheck className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+          </button>
+
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}
@@ -80,7 +108,17 @@ export function MainContent() {
       </header>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-6 relative">
+        {/* Loading Overlay */}
+        {isGenerating && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 dark:bg-black/40 backdrop-blur-sm rounded-lg">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-[var(--accent-color)]" />
+              <span className="text-sm font-medium text-[var(--text-primary)]">Generating context...</span>
+            </div>
+          </div>
+        )}
+
         <div className="h-full">
           {!fileTree ? (
             // Empty state
@@ -103,13 +141,20 @@ export function MainContent() {
               </p>
             </div>
           ) : (
-            // Show generated output
+            // Show generated output - editable textarea
             <div className="h-full flex flex-col">
               <div className="flex-1 bg-[var(--code-bg)] rounded-lg border border-[var(--border-color)] overflow-hidden">
-                <pre className="code-output h-full overflow-auto p-4 text-[var(--text-primary)] m-0">
-                  {generatedOutput}
-                </pre>
+                <textarea
+                  value={generatedOutput}
+                  onChange={handleOutputChange}
+                  className="code-output w-full h-full resize-none p-4 text-[var(--text-primary)] bg-transparent border-none outline-none focus:ring-0"
+                  spellCheck={false}
+                  placeholder="Generated context will appear here..."
+                />
               </div>
+              <p className="text-xs text-[var(--text-muted)] mt-2 text-center">
+                💡 You can edit this text before copying. Character and token counts update automatically.
+              </p>
             </div>
           )}
         </div>

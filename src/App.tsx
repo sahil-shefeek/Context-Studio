@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { Sidebar, MainContent } from "./components";
+import { Sidebar, MainContent, TitleBar, FilePreviewModal } from "./components";
 import { useAppStore } from "./store/appStore";
 
 function App() {
-  const { theme } = useAppStore();
+  const { theme, previewFile, closeFilePreview } = useAppStore();
 
   // Apply theme class on mount and when theme changes
   useEffect(() => {
@@ -20,9 +20,22 @@ function App() {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
-      <Sidebar />
-      <MainContent />
+    <div className="flex flex-col h-screen w-screen overflow-hidden">
+      <TitleBar />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar />
+        <MainContent />
+      </div>
+      
+      {/* File Preview Modal */}
+      {previewFile && (
+        <FilePreviewModal
+          filePath={previewFile.path}
+          fileName={previewFile.name}
+          content={previewFile.content}
+          onClose={closeFilePreview}
+        />
+      )}
     </div>
   );
 }

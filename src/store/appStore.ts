@@ -23,6 +23,11 @@ interface AppState {
   generatedOutput: string;
   tokenCount: number;
   isGenerating: boolean;
+  
+  // UI State
+  sidebarCollapsed: boolean;
+  previewFile: { path: string; name: string; content: string } | null;
+  isPrivacyFilterEnabled: boolean;
 
   // Actions
   scanDirectory: (path: string) => Promise<void>;
@@ -32,6 +37,11 @@ interface AppState {
   clearFileTree: () => void;
   toggleTheme: () => void;
   generateContext: () => Promise<void>;
+  setGeneratedOutput: (output: string) => void;
+  toggleSidebar: () => void;
+  openFilePreview: (path: string, name: string) => Promise<void>;
+  closeFilePreview: () => void;
+  togglePrivacyFilter: () => void;
 }
 
 // Helper to get all paths from a node (including children)
@@ -148,6 +158,36 @@ function getInitialTheme(): Theme {
 // Debounce timer for generateContext
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Debounce timer for token counting (separate from generation)
+let tokenCountTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Privacy filter regex patterns
+const PRIVACY_PATTERNS = [
+  // API Keys (OpenAI, Google, AWS, etc.)
+  { pattern: /sk-[a-zA-Z0-9]{20,}/g, replacement: "sk-***REDACTED***" },
+  { pattern: /AIza[a-zA-Z0-9_-]{35}/g, replacement: "AIza***REDACTED***" },
+  { pattern: /AKIA[A-Z0-9]{16}/g, replacement: "AKIA***REDACTED***" },
+  { pattern: /ghp_[a-zA-Z0-9]{36}/g, replacement: "ghp_***REDACTED***" },
+  { pattern: /gho_[a-zA-Z0-9]{36}/g, replacement: "gho_***REDACTED***" },
+  { pattern: /glpat-[a-zA-Z0-9_-]{20,}/g, replacement: "glpat-***REDACTED***" },
+  // .env values (KEY=value patterns)
+  { pattern: /((?:PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|AUTH|CREDENTIALS|DB_PASS)[A-Z_]*)\s*=\s*["']?([^"'\s\n]+)["']?/gi, replacement: "$1=***REDACTED***" },
+  // SSH Private Keys
+  { pattern: /-----BEGIN (?:RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----/g, replacement: "-----BEGIN PRIVATE KEY-----\n***REDACTED***\n-----END PRIVATE KEY-----" },
+  // Bearer tokens
+  { pattern: /Bearer\s+[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/gi, replacement: "Bearer ***REDACTED***" },
+  // Generic long hex strings (potential secrets)
+  { pattern: /['"]\b[a-f0-9]{32,}\b['"]/gi, replacement: '"***REDACTED_HEX***"' },
+];
+
+function applyPrivacyFilter(text: string): string {
+  let filtered = text;
+  for (const { pattern, replacement } of PRIVACY_PATTERNS) {
+    filtered = filtered.replace(pattern, replacement);
+  }
+  return filtered;
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   // Initial state
   rootPath: null,
@@ -159,6 +199,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   generatedOutput: "",
   tokenCount: 0,
   isGenerating: false,
+  
+  // UI State
+  sidebarCollapsed: true,
+  previewFile: null,
+  isPrivacyFilterEnabled: false,
 
   // Actions
   scanDirectory: async (path: string) => {
@@ -306,6 +351,60 @@ export const useAppStore = create<AppState>((set, get) => ({
         tokenCount: 0, 
         isGenerating: false 
       });
+    }
+  },
+
+  setGeneratedOutput: (output: string) => {
+    const { isPrivacyFilterEnabled } = get();
+    const finalOutput = isPrivacyFilterEnabled ? applyPrivacyFilter(output) : output;
+    
+    // Update output immediately for responsive typing
+    set({ generatedOutput: finalOutput });
+    
+    // Debounce token counting for performance (500ms delay)
+    if (tokenCountTimer) clearTimeout(tokenCountTimer);
+    tokenCountTimer = setTimeout(() => {
+      const tokens = countTokens(finalOutput);
+      set({ tokenCount: tokens });
+    }, 500);
+  },
+
+  toggleSidebar: () => {
+    set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
+  },
+
+  openFilePreview: async (path: string, name: string) => {
+    try {
+      const contents = await invoke<Record<string, string>>("read_files_contents", {
+        filePaths: [path],
+      });
+      const content = contents[path] || "[Error reading file]";
+      set({ previewFile: { path, name, content } });
+    } catch (err) {
+      console.error("Failed to read file for preview:", err);
+    }
+  },
+
+  closeFilePreview: () => {
+    set({ previewFile: null });
+  },
+
+  togglePrivacyFilter: () => {
+    const { isPrivacyFilterEnabled, generatedOutput } = get();
+    const newEnabled = !isPrivacyFilterEnabled;
+    
+    if (newEnabled && generatedOutput) {
+      // Apply filter to existing output
+      const filteredOutput = applyPrivacyFilter(generatedOutput);
+      const tokens = countTokens(filteredOutput);
+      set({ 
+        isPrivacyFilterEnabled: newEnabled, 
+        generatedOutput: filteredOutput,
+        tokenCount: tokens 
+      });
+    } else {
+      // Just toggle the state (can't unfilter - would need to regenerate)
+      set({ isPrivacyFilterEnabled: newEnabled });
     }
   },
 }));

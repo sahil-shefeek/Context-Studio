@@ -56,7 +56,7 @@ interface FileTreeNodeProps {
 
 function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(depth < 2); // Auto-expand first 2 levels
-  const { selectedPaths, togglePath, openFilePreview, getFileTokenPercentage, getFolderTokenPercentage } = useAppStore();
+  const { selectedPaths, togglePathRange, openFilePreview, getFileTokenPercentage, getFolderTokenPercentage } = useAppStore();
 
   const isSelected = selectedPaths.has(node.path);
   
@@ -75,7 +75,8 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    togglePath(node.path, node);
+    // Support Shift+Click for range selection
+    togglePathRange(node.path, node, e.shiftKey);
   };
 
   const handleExpand = () => {

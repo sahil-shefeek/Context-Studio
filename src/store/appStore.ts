@@ -12,6 +12,7 @@ export interface FileNode {
 
 export type Theme = "dark" | "light" | "system";
 export type ResolvedTheme = "dark" | "light";
+export type OutputFormat = "markdown" | "xml";
 
 // Ignore settings matching Rust struct
 export interface IgnoreSettings {
@@ -119,6 +120,7 @@ interface AppState {
   // Context Window Settings
   targetContextWindow: number;
   customIgnorePatterns: string;
+  outputFormat: OutputFormat;
   
   // New Settings
   restoreSessionOnStartup: boolean;
@@ -129,10 +131,14 @@ interface AppState {
   respectDockerignore: boolean;
   respectAiignore: boolean;
   frameworkPresets: string[];
+  
+  // Range selection tracking
+  lastClickedPath: string | null;
 
   // Actions
   scanDirectory: (path: string) => Promise<void>;
   togglePath: (path: string, node: FileNode) => void;
+  togglePathRange: (path: string, node: FileNode, shiftKey: boolean) => void;
   selectAll: () => void;
   deselectAll: () => void;
   clearFileTree: () => void;
@@ -159,6 +165,7 @@ interface AppState {
   restoreSession: () => Promise<void>;
   setTargetContextWindow: (tokens: number) => void;
   setCustomIgnorePatterns: (patterns: string) => void;
+  setOutputFormat: (format: OutputFormat) => void;
   getContextPercentage: () => number;
   getContextStatus: () => 'green' | 'yellow' | 'red';
   
@@ -347,6 +354,17 @@ function saveCustomIgnorePatterns(patterns: string) {
   localStorage.setItem("customIgnorePatterns", patterns);
 }
 
+// Load output format from localStorage
+function loadOutputFormat(): OutputFormat {
+  const saved = localStorage.getItem("outputFormat");
+  return saved === "xml" ? "xml" : "markdown";
+}
+
+// Save output format to localStorage
+function saveOutputFormat(format: OutputFormat) {
+  localStorage.setItem("outputFormat", format);
+}
+
 // Load restore session on startup setting
 function loadRestoreSessionOnStartup(): boolean {
   return localStorage.getItem("restoreSessionOnStartup") !== "false"; // Default true
@@ -533,6 +551,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Context Window Settings
   targetContextWindow: loadTargetContextWindow(),
   customIgnorePatterns: loadCustomIgnorePatterns(),
+  outputFormat: loadOutputFormat(),
   
   // New Settings
   restoreSessionOnStartup: loadRestoreSessionOnStartup(),
@@ -543,6 +562,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   respectDockerignore: loadRespectDockerignore(),
   respectAiignore: loadRespectAiignore(),
   frameworkPresets: loadFrameworkPresets(),
+  
+  // Range selection tracking
+  lastClickedPath: null,
 
   // Actions
   scanDirectory: async (path: string) => {
@@ -605,7 +627,60 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     
     // Update selection immediately for snappy UI
-    set({ selectedPaths: newSelected });
+    set({ selectedPaths: newSelected, lastClickedPath: path });
+    
+    // Save session state
+    if (rootPath) {
+      saveSessionState(rootPath, Array.from(newSelected));
+    }
+    
+    // Debounce the heavy lifting (file reading, token counting)
+    if (debounceTimer) clearTimeout(debounceTimer);
+    set({ isGenerating: true }); // Show loading state immediately
+    debounceTimer = setTimeout(() => {
+      generateContext();
+    }, 400);
+  },
+
+  togglePathRange: (path: string, node: FileNode, shiftKey: boolean) => {
+    const { selectedPaths, generateContext, rootPath, fileTree, lastClickedPath } = get();
+    
+    // If shift is not pressed or no last clicked path, just do normal toggle
+    if (!shiftKey || !lastClickedPath || !fileTree) {
+      get().togglePath(path, node);
+      return;
+    }
+    
+    // Get flat list of all paths in order
+    const allPaths = getAllPaths(fileTree);
+    const lastIndex = allPaths.indexOf(lastClickedPath);
+    const currentIndex = allPaths.indexOf(path);
+    
+    if (lastIndex === -1 || currentIndex === -1) {
+      get().togglePath(path, node);
+      return;
+    }
+    
+    // Determine the range
+    const startIndex = Math.min(lastIndex, currentIndex);
+    const endIndex = Math.max(lastIndex, currentIndex);
+    const pathsInRange = allPaths.slice(startIndex, endIndex + 1);
+    
+    const newSelected = new Set(selectedPaths);
+    
+    // Determine action based on the clicked item's current state
+    const isSelected = newSelected.has(path);
+    
+    for (const p of pathsInRange) {
+      if (isSelected) {
+        newSelected.delete(p);
+      } else {
+        newSelected.add(p);
+      }
+    }
+    
+    // Update selection immediately for snappy UI
+    set({ selectedPaths: newSelected, lastClickedPath: path });
     
     // Save session state
     if (rootPath) {
@@ -690,7 +765,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   generateContext: async () => {
-    const { fileTree, selectedPaths, rootPath, isPrivacyFilterEnabled, maxFileSizeKb } = get();
+    const { fileTree, selectedPaths, rootPath, isPrivacyFilterEnabled, maxFileSizeKb, outputFormat } = get();
     
     if (!fileTree || selectedPaths.size === 0) {
       set({ generatedOutput: "", originalOutput: "", tokenCount: 0, isGenerating: false, fileTokenMap: new Map() });
@@ -718,20 +793,42 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
 
       // Build the output and track per-file tokens
-      let output = "# Project Structure\n\n```\n" + treeText + "```\n\n---\n\n# File Contents\n\n";
+      let output = "";
       const newFileTokenMap = new Map<string, number>();
 
-      for (const filePath of selectedFilePaths) {
-        const content = contents[filePath] || "[Error reading file]";
-        const relativePath = rootPath ? filePath.replace(rootPath, "").replace(/^\//, "") : filePath;
-        const langId = getLanguageId(filePath);
+      if (outputFormat === "xml") {
+        // XML format for Claude and similar models
+        output = `<project_structure>\n${treeText}</project_structure>\n\n<file_contents>\n`;
         
-        const fileSection = `## File: ${relativePath}\n\n\`\`\`${langId}\n${content}\n\`\`\`\n\n`;
-        output += fileSection;
+        for (const filePath of selectedFilePaths) {
+          const content = contents[filePath] || "[Error reading file]";
+          const relativePath = rootPath ? filePath.replace(rootPath, "").replace(/^\//, "") : filePath;
+          
+          const fileSection = `<file path="${relativePath}">\n${content}\n</file>\n\n`;
+          output += fileSection;
+          
+          // Count tokens for this file
+          const fileTokens = countTokens(fileSection);
+          newFileTokenMap.set(filePath, fileTokens);
+        }
         
-        // Count tokens for this file
-        const fileTokens = countTokens(fileSection);
-        newFileTokenMap.set(filePath, fileTokens);
+        output += `</file_contents>`;
+      } else {
+        // Markdown format (default)
+        output = "# Project Structure\n\n```\n" + treeText + "```\n\n---\n\n# File Contents\n\n";
+
+        for (const filePath of selectedFilePaths) {
+          const content = contents[filePath] || "[Error reading file]";
+          const relativePath = rootPath ? filePath.replace(rootPath, "").replace(/^\//, "") : filePath;
+          const langId = getLanguageId(filePath);
+          
+          const fileSection = `## File: ${relativePath}\n\n\`\`\`${langId}\n${content}\n\`\`\`\n\n`;
+          output += fileSection;
+          
+          // Count tokens for this file
+          const fileTokens = countTokens(fileSection);
+          newFileTokenMap.set(filePath, fileTokens);
+        }
       }
 
       // Count total tokens
@@ -964,6 +1061,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCustomIgnorePatterns: (patterns: string) => {
     saveCustomIgnorePatterns(patterns);
     set({ customIgnorePatterns: patterns });
+  },
+
+  setOutputFormat: (format: OutputFormat) => {
+    saveOutputFormat(format);
+    set({ outputFormat: format });
+    // Regenerate context with new format
+    const { generateContext, selectedPaths } = get();
+    if (selectedPaths.size > 0) {
+      set({ isGenerating: true });
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        generateContext();
+      }, 100);
+    }
   },
 
   getContextPercentage: () => {

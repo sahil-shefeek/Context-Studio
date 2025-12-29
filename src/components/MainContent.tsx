@@ -1,8 +1,9 @@
-import { FileText, Copy, Download, FolderOpen, Loader2, Check, Shield, ShieldCheck, PanelLeft, Clock, X, ChevronDown, AlertTriangle } from "lucide-react";
+import { FileText, Copy, Download, FolderOpen, Loader2, Check, Shield, ShieldCheck, PanelLeft, Clock, X, ChevronDown, AlertTriangle, Settings } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { useState, useCallback, useMemo } from "react";
 import { Button, Select, Badge } from "./ui";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
+import { open } from "@tauri-apps/plugin-dialog";
 
 export function MainContent() {
   const { 
@@ -26,13 +27,36 @@ export function MainContent() {
     getContextPercentage,
     getContextStatus,
     targetContextWindow,
+    openSettings,
+    scanDirectory,
   } = useAppStore();
   const [copied, setCopied] = useState(false);
   const [isTemplateExpanded, setIsTemplateExpanded] = useState(true);
   const [showPrivacyWarning, setShowPrivacyWarning] = useState(false);
 
+  // Detect platform for keyboard shortcut display
+  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const cmdKey = isMac ? '⌘' : 'Ctrl';
+
   const hasOutput = generatedOutput.length > 0;
   const hasProject = !!fileTree;
+
+  // Handle opening folder
+  const handleOpenFolder = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "Select a folder to scan",
+      });
+
+      if (selected && typeof selected === "string") {
+        await scanDirectory(selected);
+      }
+    } catch (err) {
+      console.error("Failed to open folder:", err);
+    }
+  };
 
   // Limit recent folders to 5 unique paths
   const displayRecentFolders = useMemo(() => {
@@ -244,48 +268,89 @@ export function MainContent() {
         <div className="h-full transition-all duration-300 ease-in-out">
           {!fileTree ? (
             // Empty state - Welcome screen
-            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center animate-in fade-in duration-300">
-              <div className="w-20 h-20 rounded-2xl bg-[var(--accent-color)]/10 flex items-center justify-center mb-6">
-                <FolderOpen className="w-10 h-10 text-[var(--accent-color)]" />
+            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center animate-in fade-in duration-300 overflow-y-auto py-8">
+              <div className="w-20 h-20 rounded-2xl bg-(--accent-color)/10 flex items-center justify-center mb-6">
+                <FolderOpen className="w-10 h-10 text-(--accent-color)" />
               </div>
-              <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">Welcome to Context Catcher</h2>
-              <p className="text-[var(--text-secondary)] max-w-md mb-8">
+              <h2 className="text-2xl font-semibold text-(--text-primary) mb-2">Welcome to Context Catcher</h2>
+              <p className="text-(--text-secondary) max-w-md mb-8">
                 Open a folder to scan your project files and generate AI-friendly context.
               </p>
               
-              {/* Recent Folders */}
+              {/* Quick Start Section */}
+              <div className="w-full max-w-2xl mb-8">
+                <h3 className="text-sm font-medium text-(--text-muted) uppercase tracking-wider mb-4">Quick Start</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={handleOpenFolder}
+                    className="flex items-center gap-4 p-4 rounded-xl bg-(--bg-secondary) hover:bg-(--bg-tertiary) border border-(--border-color) hover:border-(--accent-color) transition-all text-left group"
+                  >
+                    <div className="w-12 h-12 rounded-lg bg-(--accent-color)/10 flex items-center justify-center group-hover:bg-(--accent-color)/20 transition-colors">
+                      <FolderOpen className="w-6 h-6 text-(--accent-color)" />
+                    </div>
+                    <div className="flex-1">
+                      <span className="block text-sm font-semibold text-(--text-primary) group-hover:text-(--accent-color) transition-colors">
+                        Open Folder
+                      </span>
+                      <span className="text-xs text-(--text-muted)">
+                        <kbd className="px-1.5 py-0.5 rounded bg-(--bg-tertiary) text-[10px]">{cmdKey} O</kbd>
+                      </span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={openSettings}
+                    className="flex items-center gap-4 p-4 rounded-xl bg-(--bg-secondary) hover:bg-(--bg-tertiary) border border-(--border-color) hover:border-(--accent-color) transition-all text-left group"
+                  >
+                    <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+                      <Settings className="w-6 h-6 text-purple-500" />
+                    </div>
+                    <div className="flex-1">
+                      <span className="block text-sm font-semibold text-(--text-primary) group-hover:text-purple-500 transition-colors">
+                        Settings
+                      </span>
+                      <span className="text-xs text-(--text-muted)">
+                        <kbd className="px-1.5 py-0.5 rounded bg-(--bg-tertiary) text-[10px]">{cmdKey} ,</kbd>
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Recent Folders as Project Cards */}
               {displayRecentFolders.length > 0 && (
-                <div className="w-full max-w-md">
-                  <div className="flex items-center gap-2 mb-3 text-[var(--text-muted)]">
+                <div className="w-full max-w-2xl">
+                  <div className="flex items-center gap-2 mb-4 text-(--text-muted)">
                     <Clock className="w-4 h-4" />
-                    <span className="text-sm font-medium">Recent Folders</span>
+                    <span className="text-sm font-medium uppercase tracking-wider">Recent Projects</span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
                     {displayRecentFolders.map((folder) => (
                       <div
                         key={folder.path}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] border border-[var(--border-color)] transition-colors text-left group"
+                        className="relative group"
                       >
                         <button
                           onClick={() => openRecentFolder(folder.path)}
-                          className="flex items-center gap-3 flex-1 min-w-0"
+                          className="w-full flex flex-col p-4 rounded-xl bg-(--bg-secondary) hover:bg-(--bg-tertiary) border border-(--border-color) hover:border-(--accent-color) transition-all text-left"
                         >
-                          <FolderOpen className="w-5 h-5 text-[var(--accent-color)] flex-shrink-0" />
-                          <div className="flex-1 min-w-0 text-left">
-                            <span className="block text-sm font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent-color)]">
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 rounded-lg bg-(--accent-color)/10 flex items-center justify-center">
+                              <FolderOpen className="w-5 h-5 text-(--accent-color)" />
+                            </div>
+                            <span className="text-base font-semibold text-(--text-primary) truncate group-hover:text-(--accent-color) transition-colors">
                               {folder.name}
                             </span>
-                            <span className="block text-xs text-[var(--text-muted)] truncate">
-                              {folder.path}
-                            </span>
                           </div>
+                          <span className="text-xs text-(--text-muted) truncate pl-[52px]">
+                            {folder.path}
+                          </span>
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             removeRecentFolder(folder.path);
                           }}
-                          className="p-1.5 rounded hover:bg-red-500/20 text-[var(--text-muted)] hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-(--bg-tertiary) hover:bg-red-500/20 text-(--text-muted) hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                           title="Remove from recent"
                         >
                           <X className="w-4 h-4" />
@@ -299,11 +364,15 @@ export function MainContent() {
           ) : !hasOutput ? (
             // Folder loaded but no selection
             <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center animate-in fade-in duration-300">
-              <FileText className="w-16 h-16 text-[var(--border-color)] mb-4" />
-              <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">Select Files</h2>
-              <p className="text-[var(--text-secondary)] max-w-md">
+              <FileText className="w-16 h-16 text-(--border-color) mb-4" />
+              <h2 className="text-xl font-semibold text-(--text-primary) mb-2">Select Files</h2>
+              <p className="text-(--text-secondary) max-w-md mb-4">
                 Use the checkboxes in the file tree to select the files you want to include.
                 Click on folders to select all files within them.
+              </p>
+              <p className="text-xs text-(--text-muted)">
+                <kbd className="px-1.5 py-0.5 rounded bg-(--bg-tertiary) mr-1">Shift</kbd>
+                + Click for range selection
               </p>
             </div>
           ) : (
@@ -311,7 +380,7 @@ export function MainContent() {
             <div className="h-full flex flex-col animate-in fade-in duration-300 gap-3">
               {/* Accordion: Active Prompt Template */}
               {hasActiveTemplate && (
-                <div className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] overflow-hidden flex-shrink-0">
+                <div className="bg-(--bg-secondary) rounded-lg border border-(--border-color) overflow-hidden shrink-0">
                   <button
                     onClick={() => setIsTemplateExpanded(!isTemplateExpanded)}
                     className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-[var(--bg-tertiary)] transition-colors"

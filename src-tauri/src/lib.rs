@@ -408,37 +408,55 @@ fn read_files_contents(
     for file_path in file_paths {
         let path = Path::new(&file_path);
 
+        // Check if file exists
         if !path.exists() {
-            contents.insert(file_path, "[File not found]".to_string());
+            contents.insert(file_path.clone(), "[File not found - may have been deleted or moved]".to_string());
             continue;
         }
 
+        // Skip directories
         if !path.is_file() {
-            continue; // Skip directories
+            continue;
         }
 
-        // Check file size before reading
-        if let Ok(metadata) = fs::metadata(path) {
-            let file_size = metadata.len();
-            if file_size > max_size {
-                let size_str = format_file_size(file_size);
-                let max_str = format_file_size(max_size);
-                contents.insert(file_path, format!("[File too large to include - {} (max: {})]", size_str, max_str));
+        // Check file size before reading (with error handling for permission issues)
+        match fs::metadata(path) {
+            Ok(metadata) => {
+                let file_size = metadata.len();
+                if file_size > max_size {
+                    let size_str = format_file_size(file_size);
+                    let max_str = format_file_size(max_size);
+                    contents.insert(file_path.clone(), format!("[File too large to include - {} (max: {})]", size_str, max_str));
+                    continue;
+                }
+            }
+            Err(e) => {
+                contents.insert(file_path.clone(), format!("[Cannot access file metadata: {}]", e));
                 continue;
             }
         }
 
+        // Check if binary file
         if is_binary_file(path) {
-            contents.insert(file_path, "[Binary File]".to_string());
+            contents.insert(file_path.clone(), "[Binary File]".to_string());
             continue;
         }
 
+        // Read file contents with comprehensive error handling
         match fs::read_to_string(path) {
             Ok(content) => {
-                contents.insert(file_path, content);
+                contents.insert(file_path.clone(), content);
             }
             Err(e) => {
-                contents.insert(file_path, format!("[Error reading file: {}]", e));
+                // Provide specific error messages for common issues
+                let error_msg = match e.kind() {
+                    std::io::ErrorKind::NotFound => "[File not found - may have been deleted while scanning]".to_string(),
+                    std::io::ErrorKind::PermissionDenied => "[Permission denied - cannot read this file]".to_string(),
+                    std::io::ErrorKind::InvalidData => "[File contains invalid UTF-8 encoding]".to_string(),
+                    std::io::ErrorKind::Interrupted => "[File read was interrupted - please try again]".to_string(),
+                    _ => format!("[Error reading file: {}]", e),
+                };
+                contents.insert(file_path.clone(), error_msg);
             }
         }
     }

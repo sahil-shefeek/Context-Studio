@@ -14,6 +14,8 @@ import {
   XCircle,
   RotateCcw,
   Info,
+  Keyboard,
+  Code2,
 } from "lucide-react";
 import { useAppStore, FRAMEWORK_PRESETS, PromptTemplate } from "../store/appStore";
 import { 
@@ -68,7 +70,13 @@ export function SettingsModal() {
     updateTemplate,
     deleteTemplate,
     resetTemplatesToDefault,
+    outputFormat,
+    setOutputFormat,
   } = useAppStore();
+
+  // Detect platform for keyboard shortcut display
+  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const cmdKey = isMac ? '⌘' : 'Ctrl';
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [localContextWindow, setLocalContextWindow] = useState(targetContextWindow.toString());
@@ -389,6 +397,42 @@ export function SettingsModal() {
                     </div>
                   </div>
                 </section>
+
+                <Separator />
+
+                {/* Output Format */}
+                <section>
+                  <h3 className="flex items-center gap-2 text-sm font-medium text-(--text-primary) mb-3">
+                    <Code2 className="w-4 h-4 text-(--accent-color)" />
+                    Output Format
+                  </h3>
+                  <div className="bg-(--bg-tertiary) rounded-lg p-4 space-y-3">
+                    <div className="flex gap-2">
+                      {([
+                        { id: "markdown", name: "Markdown", desc: "Classic markdown with code blocks" },
+                        { id: "xml", name: "XML", desc: "XML tags (better for Claude)" },
+                      ] as const).map((format) => (
+                        <button
+                          key={format.id}
+                          onClick={() => setOutputFormat(format.id)}
+                          className={`flex-1 px-4 py-2 text-sm rounded-lg border transition-colors ${
+                            outputFormat === format.id
+                              ? "bg-(--accent-color) border-(--accent-color) text-white"
+                              : "border-(--border-color) text-(--text-secondary) hover:border-(--accent-color) hover:text-(--text-primary)"
+                          }`}
+                        >
+                          {format.name}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-(--text-muted)">
+                      {outputFormat === "xml" 
+                        ? "XML format wraps files in <file path=\"...\">...</file> tags. Claude and some LLMs perform better with structured XML context."
+                        : "Markdown uses standard code blocks with language hints for syntax highlighting."
+                      }
+                    </p>
+                  </div>
+                </section>
               </TabsContent>
 
               {/* Ignore Rules Tab */}
@@ -688,20 +732,39 @@ export function SettingsModal() {
 
                 {/* Keyboard Shortcuts */}
                 <section>
-                  <h3 className="text-sm font-medium text-(--text-primary) mb-3">
+                  <h3 className="flex items-center gap-2 text-sm font-medium text-(--text-primary) mb-3">
+                    <Keyboard className="w-4 h-4 text-(--accent-color)" />
                     Keyboard Shortcuts
                   </h3>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="flex items-center justify-between bg-(--bg-tertiary) rounded px-3 py-2">
-                      <span className="text-(--text-secondary)">Copy Output</span>
+                      <span className="text-(--text-secondary)">Open Folder</span>
                       <kbd className="px-2 py-0.5 rounded bg-(--bg-secondary) border border-(--border-color) text-xs text-(--text-muted)">
-                        ⌘C
+                        {cmdKey} O
                       </kbd>
                     </div>
                     <div className="flex items-center justify-between bg-(--bg-tertiary) rounded px-3 py-2">
-                      <span className="text-(--text-secondary)">Export</span>
+                      <span className="text-(--text-secondary)">Settings</span>
                       <kbd className="px-2 py-0.5 rounded bg-(--bg-secondary) border border-(--border-color) text-xs text-(--text-muted)">
-                        ⌘S
+                        {cmdKey} ,
+                      </kbd>
+                    </div>
+                    <div className="flex items-center justify-between bg-(--bg-tertiary) rounded px-3 py-2">
+                      <span className="text-(--text-secondary)">Copy Context</span>
+                      <kbd className="px-2 py-0.5 rounded bg-(--bg-secondary) border border-(--border-color) text-xs text-(--text-muted)">
+                        {cmdKey} C
+                      </kbd>
+                    </div>
+                    <div className="flex items-center justify-between bg-(--bg-tertiary) rounded px-3 py-2">
+                      <span className="text-(--text-secondary)">Clear / Close</span>
+                      <kbd className="px-2 py-0.5 rounded bg-(--bg-secondary) border border-(--border-color) text-xs text-(--text-muted)">
+                        {cmdKey} K
+                      </kbd>
+                    </div>
+                    <div className="flex items-center justify-between bg-(--bg-tertiary) rounded px-3 py-2 col-span-2">
+                      <span className="text-(--text-secondary)">Range Selection (File Tree)</span>
+                      <kbd className="px-2 py-0.5 rounded bg-(--bg-secondary) border border-(--border-color) text-xs text-(--text-muted)">
+                        Shift + Click
                       </kbd>
                     </div>
                   </div>

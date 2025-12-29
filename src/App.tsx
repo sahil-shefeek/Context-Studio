@@ -1,9 +1,48 @@
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { Sidebar, MainContent, TitleBar, FilePreviewModal, SettingsModal } from "./components";
 import { useAppStore } from "./store/appStore";
+import { open } from "@tauri-apps/plugin-dialog";
 
 function App() {
-  const { theme, previewFile, closeFilePreview, restoreSession } = useAppStore();
+  const { 
+    theme, 
+    previewFile, 
+    closeFilePreview, 
+    restoreSession,
+    openSettings,
+    clearFileTree,
+    getOutputWithTemplate,
+    generatedOutput,
+    scanDirectory,
+  } = useAppStore();
+
+  // Handle opening folder via keyboard shortcut
+  const handleOpenFolder = useCallback(async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "Select a folder to scan",
+      });
+
+      if (selected && typeof selected === "string") {
+        await scanDirectory(selected);
+      }
+    } catch (err) {
+      console.error("Failed to open folder:", err);
+    }
+  }, [scanDirectory]);
+
+  // Handle copy context via keyboard shortcut
+  const handleCopyContext = useCallback(async () => {
+    const output = getOutputWithTemplate();
+    if (!output) return;
+    try {
+      await navigator.clipboard.writeText(output);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  }, [getOutputWithTemplate]);
 
   // Apply theme class on mount and when theme changes
   useEffect(() => {
@@ -23,6 +62,38 @@ function App() {
     document.addEventListener("contextmenu", handleContextMenu);
     return () => document.removeEventListener("contextmenu", handleContextMenu);
   }, []);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+      
+      // Don't trigger shortcuts when typing in input fields
+      const target = e.target as HTMLElement;
+      const isEditing = target.tagName === 'INPUT' || 
+                        target.tagName === 'TEXTAREA' || 
+                        target.isContentEditable ||
+                        target.closest('.cm-editor'); // CodeMirror editor
+      
+      if (cmdOrCtrl && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        handleOpenFolder();
+      } else if (cmdOrCtrl && e.key === ',') {
+        e.preventDefault();
+        openSettings();
+      } else if (cmdOrCtrl && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        clearFileTree();
+      } else if (cmdOrCtrl && e.key.toLowerCase() === 'c' && !isEditing && generatedOutput) {
+        e.preventDefault();
+        handleCopyContext();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleOpenFolder, openSettings, clearFileTree, handleCopyContext, generatedOutput]);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden">

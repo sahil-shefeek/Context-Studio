@@ -1,4 +1,4 @@
-import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck, PanelLeft, Clock, X, ChevronDown } from "lucide-react";
+import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck, PanelLeft, Clock, X, ChevronDown, AlertTriangle, Monitor } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { useState, useCallback, useMemo } from "react";
 import { Button, Select, Badge } from "./ui";
@@ -10,11 +10,12 @@ export function MainContent() {
     generatedOutput, 
     tokenCount, 
     isGenerating, 
-    theme, 
-    toggleTheme, 
+    theme,
+    resolvedTheme,
+    setTheme, 
     setGeneratedOutput,
     isPrivacyFilterEnabled,
-    togglePrivacyFilter,
+    setPrivacyFilterEnabled,
     sidebarCollapsed,
     toggleSidebar,
     recentFolders,
@@ -30,6 +31,7 @@ export function MainContent() {
   } = useAppStore();
   const [copied, setCopied] = useState(false);
   const [isTemplateExpanded, setIsTemplateExpanded] = useState(true);
+  const [showPrivacyWarning, setShowPrivacyWarning] = useState(false);
 
   const hasOutput = generatedOutput.length > 0;
   const hasProject = !!fileTree;
@@ -65,6 +67,34 @@ export function MainContent() {
     if (!hasProject) return "Ready";
     if (hasOutput) return "Context Generated";
     return "Ready";
+  };
+
+  // Handle privacy filter toggle with confirmation
+  const handlePrivacyToggle = () => {
+    if (isPrivacyFilterEnabled) {
+      // Show warning when trying to disable
+      setShowPrivacyWarning(true);
+    } else {
+      // Enable directly (safe action)
+      setPrivacyFilterEnabled(true);
+    }
+  };
+
+  const confirmDisablePrivacy = () => {
+    setPrivacyFilterEnabled(false);
+    setShowPrivacyWarning(false);
+  };
+
+  // Cycle theme: dark -> light -> system
+  const cycleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : theme === "light" ? "system" : "dark";
+    setTheme(nextTheme);
+  };
+
+  // Get theme icon based on current setting
+  const getThemeIcon = () => {
+    if (theme === "system") return <Monitor className="w-4 h-4" />;
+    return resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />;
   };
 
   const handleCopy = async () => {
@@ -110,6 +140,39 @@ export function MainContent() {
 
   return (
     <main className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] relative">
+      {/* Privacy Warning Modal */}
+      {showPrivacyWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg p-6 max-w-md mx-4 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-full bg-yellow-500/20">
+                <AlertTriangle className="w-6 h-6 text-yellow-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Disable Privacy Filter?</h3>
+            </div>
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
+              <strong className="text-yellow-500">Warning:</strong> Disabling the privacy filter may expose sensitive information like API keys, passwords, or environment variables in your context output.
+            </p>
+            <p className="text-sm text-[var(--text-muted)] mb-6">
+              Only disable this if you're sure your selected files don't contain secrets, or if you need to include them intentionally.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setShowPrivacyWarning(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={confirmDisablePrivacy}
+                className="bg-yellow-500 hover:bg-yellow-600 text-black"
+              >
+                Disable Filter
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="px-6 py-4 border-b border-[var(--border-color)] flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -144,7 +207,7 @@ export function MainContent() {
             <Button
               variant={isPrivacyFilterEnabled ? "default" : "secondary"}
               size="icon-sm"
-              onClick={togglePrivacyFilter}
+              onClick={handlePrivacyToggle}
               className={isPrivacyFilterEnabled ? "bg-green-500/20 text-green-500 hover:bg-green-500/30" : ""}
               title={isPrivacyFilterEnabled ? "Privacy filter enabled - secrets are masked" : "Enable privacy filter to mask secrets"}
             >
@@ -156,10 +219,10 @@ export function MainContent() {
           <Button
             variant="secondary"
             size="icon-sm"
-            onClick={toggleTheme}
-            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            onClick={cycleTheme}
+            title={`Theme: ${theme} (click to change)`}
           >
-            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {getThemeIcon()}
           </Button>
           
           {/* Only show action buttons when project is open */}

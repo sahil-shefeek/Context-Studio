@@ -15,7 +15,6 @@ import {
   X,
   RefreshCw,
   Search,
-  AlertTriangle,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAppStore, FileNode } from "../store/appStore";
@@ -218,10 +217,9 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
 }
 
 export function Sidebar() {
-  const { fileTree, rootPath, isScanning, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar, clearFileTree, selectAll } =
+  const { fileTree, rootPath, isScanning, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar, clearFileTree } =
     useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const [showSelectAllWarning, setShowSelectAllWarning] = useState(false);
 
   // Filter tree based on search query
   const filteredTree = useMemo(() => {
@@ -251,22 +249,6 @@ export function Sidebar() {
     setSearchQuery("");
   };
 
-  // Handle Select All with warning for large projects
-  const handleSelectAll = () => {
-    if (!fileTree) return;
-    const fileCount = countFiles(fileTree);
-    if (fileCount > 100) {
-      setShowSelectAllWarning(true);
-    } else {
-      selectAll();
-    }
-  };
-
-  const confirmSelectAll = () => {
-    setShowSelectAllWarning(false);
-    selectAll();
-  };
-
   const selectedCount = selectedPaths.size;
   const projectName = rootPath ? rootPath.split('/').pop() || rootPath : null;
 
@@ -277,31 +259,6 @@ export function Sidebar() {
 
   return (
     <aside className="w-72 min-w-72 bg-[var(--bg-secondary)] border-r border-[var(--border-color)] flex flex-col h-full">
-      {/* Select All Warning Modal */}
-      {showSelectAllWarning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg p-6 max-w-sm mx-4 shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-full bg-yellow-500/20">
-                <AlertTriangle className="w-6 h-6 text-yellow-500" />
-              </div>
-              <h3 className="text-lg font-semibold text-[var(--text-primary)]">Large Selection</h3>
-            </div>
-            <p className="text-sm text-[var(--text-secondary)] mb-4">
-              You're about to select over 100 files. This may result in a very large context that could exceed AI model limits.
-            </p>
-            <div className="flex gap-2 justify-end">
-              <Button variant="ghost" size="sm" onClick={() => setShowSelectAllWarning(false)}>
-                Cancel
-              </Button>
-              <Button variant="default" size="sm" onClick={confirmSelectAll}>
-                Select All Anyway
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div className="p-3 border-b border-[var(--border-color)]">
         <div className="flex items-center justify-between mb-3">
@@ -406,19 +363,11 @@ export function Sidebar() {
       )}
 
       {/* Selection info */}
-      {fileTree && (
-        <div className="px-3 py-2 border-b border-[var(--border-color)] flex items-center justify-between">
+      {fileTree && selectedCount > 0 && (
+        <div className="px-3 py-2 border-b border-[var(--border-color)]">
           <span className="text-xs text-[var(--text-secondary)]">
-            {selectedCount} selected
+            {selectedCount} file{selectedCount !== 1 ? 's' : ''} selected
           </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSelectAll}
-            className="text-xs h-6 px-2"
-          >
-            Select All
-          </Button>
         </div>
       )}
 

@@ -10,7 +10,17 @@ export interface FileNode {
   children?: FileNode[];
 }
 
-export type Theme = "dark" | "light";
+export type Theme = "dark" | "light" | "system";
+export type ResolvedTheme = "dark" | "light";
+
+// Ignore settings matching Rust struct
+export interface IgnoreSettings {
+  respect_gitignore: boolean;
+  respect_dockerignore: boolean;
+  respect_aiignore: boolean;
+  framework_presets: string[];
+  custom_patterns: string[];
+}
 
 // Recent folder entry
 export interface RecentFolder {
@@ -24,6 +34,7 @@ export interface PromptTemplate {
   id: string;
   name: string;
   text: string;
+  isDefault?: boolean;
 }
 
 // Default prompt templates
@@ -32,33 +43,52 @@ const DEFAULT_TEMPLATES: PromptTemplate[] = [
     id: "none",
     name: "No Template",
     text: "",
+    isDefault: true,
   },
   {
     id: "general",
     name: "General Context",
     text: "Please use the following project structure and file contents as context for our conversation.\n\n",
+    isDefault: true,
   },
   {
     id: "code-review",
     name: "Code Review",
     text: "Act as a Senior Developer. Review the following code for bugs, security vulnerabilities, and performance bottlenecks.\n\n",
+    isDefault: true,
   },
   {
     id: "refactor",
     name: "Refactor",
     text: "Suggest improvements to the following code to make it more readable, modular, and maintainable.\n\n",
+    isDefault: true,
   },
   {
     id: "explain",
     name: "Explain Code",
     text: "Please explain what this code does, including its main components and how they interact.\n\n",
+    isDefault: true,
   },
   {
     id: "debug",
     name: "Debug Helper",
     text: "I'm experiencing an issue with this code. Please analyze it and help me identify potential bugs or problems.\n\n",
+    isDefault: true,
   },
 ];
+
+// Framework presets configuration
+export const FRAMEWORK_PRESETS = [
+  { id: "react-vite", name: "React / Vite" },
+  { id: "rust-cargo", name: "Rust / Cargo" },
+  { id: "python-venv", name: "Python / Venv / uv" },
+  { id: "nodejs", name: "Node.js" },
+  { id: "nextjs", name: "Next.js" },
+  { id: "golang", name: "Go" },
+  { id: "flutter", name: "Flutter" },
+  { id: "java", name: "Java" },
+  { id: "cpp", name: "C / C++" },
+] as const;
 
 interface AppState {
   // State
@@ -68,6 +98,7 @@ interface AppState {
   isScanning: boolean;
   error: string | null;
   theme: Theme;
+  resolvedTheme: ResolvedTheme;
   generatedOutput: string;
   originalOutput: string; // Store unfiltered output for reverting
   tokenCount: number;
@@ -88,6 +119,16 @@ interface AppState {
   // Context Window Settings
   targetContextWindow: number;
   customIgnorePatterns: string;
+  
+  // New Settings
+  restoreSessionOnStartup: boolean;
+  maxFileSizeKb: number;
+  
+  // Ignore Settings
+  respectGitignore: boolean;
+  respectDockerignore: boolean;
+  respectAiignore: boolean;
+  frameworkPresets: string[];
 
   // Actions
   scanDirectory: (path: string) => Promise<void>;
@@ -95,6 +136,7 @@ interface AppState {
   selectAll: () => void;
   deselectAll: () => void;
   clearFileTree: () => void;
+  setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   generateContext: () => Promise<void>;
   setGeneratedOutput: (output: string) => void;
@@ -102,6 +144,7 @@ interface AppState {
   openFilePreview: (path: string, name: string) => Promise<void>;
   closeFilePreview: () => void;
   togglePrivacyFilter: () => void;
+  setPrivacyFilterEnabled: (enabled: boolean) => void;
   loadRecentFolders: () => void;
   openRecentFolder: (path: string) => Promise<void>;
   removeRecentFolder: (path: string) => void;
@@ -118,6 +161,21 @@ interface AppState {
   setCustomIgnorePatterns: (patterns: string) => void;
   getContextPercentage: () => number;
   getContextStatus: () => 'green' | 'yellow' | 'red';
+  
+  // New Settings Actions
+  setRestoreSessionOnStartup: (enabled: boolean) => void;
+  setMaxFileSizeKb: (size: number) => void;
+  setRespectGitignore: (enabled: boolean) => void;
+  setRespectDockerignore: (enabled: boolean) => void;
+  setRespectAiignore: (enabled: boolean) => void;
+  setFrameworkPresets: (presets: string[]) => void;
+  toggleFrameworkPreset: (preset: string) => void;
+  getIgnoreSettings: () => IgnoreSettings;
+  
+  // Prompt Template CRUD
+  addTemplate: (name: string, text: string) => void;
+  updateTemplate: (id: string, name: string, text: string) => void;
+  deleteTemplate: (id: string) => void;
 }
 
 // Helper to get all paths from a node (including children)
@@ -224,11 +282,19 @@ function countTokens(text: string): number {
   }
 }
 
-// Get initial theme from system preference or localStorage
+// Resolve theme to actual dark/light
+function resolveTheme(theme: Theme): ResolvedTheme {
+  if (theme === "system") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return theme;
+}
+
+// Get initial theme from localStorage (now supports 'system')
 function getInitialTheme(): Theme {
   const saved = localStorage.getItem("theme") as Theme | null;
-  if (saved) return saved;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  if (saved && ["dark", "light", "system"].includes(saved)) return saved;
+  return "system"; // Default to system theme
 }
 
 // Load recent folders from localStorage
@@ -278,6 +344,85 @@ function loadCustomIgnorePatterns(): string {
 // Save custom ignore patterns to localStorage
 function saveCustomIgnorePatterns(patterns: string) {
   localStorage.setItem("customIgnorePatterns", patterns);
+}
+
+// Load restore session on startup setting
+function loadRestoreSessionOnStartup(): boolean {
+  return localStorage.getItem("restoreSessionOnStartup") !== "false"; // Default true
+}
+
+function saveRestoreSessionOnStartup(enabled: boolean) {
+  localStorage.setItem("restoreSessionOnStartup", enabled.toString());
+}
+
+// Load max file size in KB
+function loadMaxFileSizeKb(): number {
+  const saved = localStorage.getItem("maxFileSizeKb");
+  return saved ? parseInt(saved, 10) : 1024; // Default 1MB
+}
+
+function saveMaxFileSizeKb(size: number) {
+  localStorage.setItem("maxFileSizeKb", size.toString());
+}
+
+// Load ignore settings
+function loadRespectGitignore(): boolean {
+  return localStorage.getItem("respectGitignore") !== "false"; // Default true
+}
+
+function saveRespectGitignore(enabled: boolean) {
+  localStorage.setItem("respectGitignore", enabled.toString());
+}
+
+function loadRespectDockerignore(): boolean {
+  return localStorage.getItem("respectDockerignore") === "true"; // Default false
+}
+
+function saveRespectDockerignore(enabled: boolean) {
+  localStorage.setItem("respectDockerignore", enabled.toString());
+}
+
+function loadRespectAiignore(): boolean {
+  return localStorage.getItem("respectAiignore") !== "false"; // Default true
+}
+
+function saveRespectAiignore(enabled: boolean) {
+  localStorage.setItem("respectAiignore", enabled.toString());
+}
+
+function loadFrameworkPresets(): string[] {
+  try {
+    const saved = localStorage.getItem("frameworkPresets");
+    if (saved) return JSON.parse(saved);
+  } catch {
+    // Ignore parse errors
+  }
+  return [];
+}
+
+function saveFrameworkPresets(presets: string[]) {
+  localStorage.setItem("frameworkPresets", JSON.stringify(presets));
+}
+
+// Load custom prompt templates
+function loadCustomTemplates(): PromptTemplate[] {
+  try {
+    const saved = localStorage.getItem("customTemplates");
+    if (saved) return JSON.parse(saved);
+  } catch {
+    // Ignore parse errors
+  }
+  return [];
+}
+
+function saveCustomTemplates(templates: PromptTemplate[]) {
+  localStorage.setItem("customTemplates", JSON.stringify(templates));
+}
+
+// Get all templates (default + custom)
+function getAllTemplates(): PromptTemplate[] {
+  const customTemplates = loadCustomTemplates();
+  return [...DEFAULT_TEMPLATES, ...customTemplates];
 }
 
 // Session state interface
@@ -356,6 +501,8 @@ function applyPrivacyFilter(text: string): string {
   return filtered;
 }
 
+const initialTheme = getInitialTheme();
+
 export const useAppStore = create<AppState>((set, get) => ({
   // Initial state
   rootPath: null,
@@ -363,7 +510,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedPaths: new Set(),
   isScanning: false,
   error: null,
-  theme: getInitialTheme(),
+  theme: initialTheme,
+  resolvedTheme: resolveTheme(initialTheme),
   generatedOutput: "",
   originalOutput: "", // Store original unfiltered output
   tokenCount: 0,
@@ -372,33 +520,40 @@ export const useAppStore = create<AppState>((set, get) => ({
   fileTokenMap: new Map(),
   
   // Prompt Templates
-  promptTemplates: DEFAULT_TEMPLATES,
+  promptTemplates: getAllTemplates(),
   selectedTemplateId: loadSelectedTemplateFromStorage(),
   
   // UI State
   sidebarCollapsed: true,
   previewFile: null,
-  isPrivacyFilterEnabled: false,
+  isPrivacyFilterEnabled: true, // Default to true for safety
   isSettingsOpen: false,
   
   // Context Window Settings
   targetContextWindow: loadTargetContextWindow(),
   customIgnorePatterns: loadCustomIgnorePatterns(),
+  
+  // New Settings
+  restoreSessionOnStartup: loadRestoreSessionOnStartup(),
+  maxFileSizeKb: loadMaxFileSizeKb(),
+  
+  // Ignore Settings
+  respectGitignore: loadRespectGitignore(),
+  respectDockerignore: loadRespectDockerignore(),
+  respectAiignore: loadRespectAiignore(),
+  frameworkPresets: loadFrameworkPresets(),
 
   // Actions
   scanDirectory: async (path: string) => {
     set({ isScanning: true, error: null });
     try {
-      const { customIgnorePatterns } = get();
-      // Parse custom patterns (one per line)
-      const patterns = customIgnorePatterns
-        .split('\n')
-        .map(p => p.trim())
-        .filter(p => p.length > 0 && !p.startsWith('#'));
+      const { getIgnoreSettings } = get();
+      const ignoreSettings = getIgnoreSettings();
       
       const tree = await invoke<FileNode>("get_file_tree", { 
         basePath: path,
-        customIgnorePatterns: patterns.length > 0 ? patterns : null
+        customIgnorePatterns: null, // Now handled via ignoreSettings
+        ignoreSettings,
       });
       const { recentFolders } = get();
       const updatedRecent = addToRecentFolders(path, recentFolders);
@@ -519,16 +674,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
-  toggleTheme: () => {
-    const { theme } = get();
-    const newTheme = theme === "dark" ? "light" : "dark";
+  setTheme: (newTheme: Theme) => {
     localStorage.setItem("theme", newTheme);
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
-    set({ theme: newTheme });
+    const resolved = resolveTheme(newTheme);
+    document.documentElement.classList.toggle("dark", resolved === "dark");
+    set({ theme: newTheme, resolvedTheme: resolved });
+  },
+
+  toggleTheme: () => {
+    const { theme, setTheme } = get();
+    // Cycle through: dark -> light -> system -> dark
+    const nextTheme = theme === "dark" ? "light" : theme === "light" ? "system" : "dark";
+    setTheme(nextTheme);
   },
 
   generateContext: async () => {
-    const { fileTree, selectedPaths, rootPath, isPrivacyFilterEnabled } = get();
+    const { fileTree, selectedPaths, rootPath, isPrivacyFilterEnabled, maxFileSizeKb } = get();
     
     if (!fileTree || selectedPaths.size === 0) {
       set({ generatedOutput: "", originalOutput: "", tokenCount: 0, isGenerating: false, fileTokenMap: new Map() });
@@ -549,9 +710,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Generate tree structure
       const treeText = generateTreeText(fileTree);
 
-      // Read file contents from Rust backend
+      // Read file contents from Rust backend with max file size
       const contents = await invoke<Record<string, string>>("read_files_contents", {
         filePaths: selectedFilePaths,
+        maxFileSizeKb,
       });
 
       // Build the output and track per-file tokens
@@ -624,8 +786,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   openFilePreview: async (path: string, name: string) => {
     try {
+      const { maxFileSizeKb } = get();
       const contents = await invoke<Record<string, string>>("read_files_contents", {
         filePaths: [path],
+        maxFileSizeKb,
       });
       const content = contents[path] || "[Error reading file]";
       set({ previewFile: { path, name, content } });
@@ -639,29 +803,33 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   togglePrivacyFilter: () => {
-    const { isPrivacyFilterEnabled, originalOutput } = get();
-    const newEnabled = !isPrivacyFilterEnabled;
+    const { isPrivacyFilterEnabled, setPrivacyFilterEnabled } = get();
+    setPrivacyFilterEnabled(!isPrivacyFilterEnabled);
+  },
+
+  setPrivacyFilterEnabled: (enabled: boolean) => {
+    const { originalOutput } = get();
     
-    if (newEnabled && originalOutput) {
+    if (enabled && originalOutput) {
       // Apply filter: show masked version
       const filteredOutput = applyPrivacyFilter(originalOutput);
       const tokens = countTokens(filteredOutput);
       set({ 
-        isPrivacyFilterEnabled: newEnabled, 
+        isPrivacyFilterEnabled: enabled, 
         generatedOutput: filteredOutput,
         tokenCount: tokens 
       });
-    } else if (!newEnabled && originalOutput) {
+    } else if (!enabled && originalOutput) {
       // Revert: show original version
       const tokens = countTokens(originalOutput);
       set({ 
-        isPrivacyFilterEnabled: newEnabled, 
+        isPrivacyFilterEnabled: enabled, 
         generatedOutput: originalOutput,
         tokenCount: tokens 
       });
     } else {
-      // No output, just toggle the state
-      set({ isPrivacyFilterEnabled: newEnabled });
+      // No output, just set the state
+      set({ isPrivacyFilterEnabled: enabled });
     }
   },
 
@@ -749,16 +917,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     const session = loadSessionState();
     if (session && session.rootPath) {
       try {
-        const { customIgnorePatterns } = get();
-        // Parse custom patterns (one per line)
-        const patterns = customIgnorePatterns
-          .split('\n')
-          .map(p => p.trim())
-          .filter(p => p.length > 0 && !p.startsWith('#'));
+        const { getIgnoreSettings } = get();
+        const ignoreSettings = getIgnoreSettings();
         
         const tree = await invoke<FileNode>("get_file_tree", { 
           basePath: session.rootPath,
-          customIgnorePatterns: patterns.length > 0 ? patterns : null
+          customIgnorePatterns: null,
+          ignoreSettings,
         });
         
         // Restore selected paths that still exist in the tree
@@ -813,5 +978,140 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (percentage > 85) return 'red';
     if (percentage > 60) return 'yellow';
     return 'green';
+  },
+  
+  // New Settings Actions
+  setRestoreSessionOnStartup: (enabled: boolean) => {
+    saveRestoreSessionOnStartup(enabled);
+    set({ restoreSessionOnStartup: enabled });
+  },
+
+  setMaxFileSizeKb: (size: number) => {
+    saveMaxFileSizeKb(size);
+    set({ maxFileSizeKb: size });
+  },
+
+  setRespectGitignore: (enabled: boolean) => {
+    saveRespectGitignore(enabled);
+    set({ respectGitignore: enabled });
+  },
+
+  setRespectDockerignore: (enabled: boolean) => {
+    saveRespectDockerignore(enabled);
+    set({ respectDockerignore: enabled });
+  },
+
+  setRespectAiignore: (enabled: boolean) => {
+    saveRespectAiignore(enabled);
+    set({ respectAiignore: enabled });
+  },
+
+  setFrameworkPresets: (presets: string[]) => {
+    saveFrameworkPresets(presets);
+    set({ frameworkPresets: presets });
+  },
+
+  toggleFrameworkPreset: (preset: string) => {
+    const { frameworkPresets } = get();
+    const newPresets = frameworkPresets.includes(preset)
+      ? frameworkPresets.filter(p => p !== preset)
+      : [...frameworkPresets, preset];
+    saveFrameworkPresets(newPresets);
+    set({ frameworkPresets: newPresets });
+  },
+
+  getIgnoreSettings: (): IgnoreSettings => {
+    const { respectGitignore, respectDockerignore, respectAiignore, frameworkPresets, customIgnorePatterns } = get();
+    // Parse custom patterns (one per line)
+    const patterns = customIgnorePatterns
+      .split('\n')
+      .map(p => p.trim())
+      .filter(p => p.length > 0 && !p.startsWith('#'));
+    
+    return {
+      respect_gitignore: respectGitignore,
+      respect_dockerignore: respectDockerignore,
+      respect_aiignore: respectAiignore,
+      framework_presets: frameworkPresets,
+      custom_patterns: patterns,
+    };
+  },
+  
+  // Prompt Template CRUD
+  addTemplate: (name: string, text: string) => {
+    const id = `custom-${Date.now()}`;
+    const newTemplate: PromptTemplate = { id, name, text, isDefault: false };
+    const customTemplates = loadCustomTemplates();
+    const updatedCustom = [...customTemplates, newTemplate];
+    saveCustomTemplates(updatedCustom);
+    set({ promptTemplates: [...DEFAULT_TEMPLATES, ...updatedCustom] });
+  },
+
+  updateTemplate: (id: string, name: string, text: string) => {
+    const { promptTemplates } = get();
+    const template = promptTemplates.find(t => t.id === id);
+    
+    if (template?.isDefault) {
+      // For default templates, we save an override in custom templates
+      const customTemplates = loadCustomTemplates();
+      const existingOverride = customTemplates.findIndex(t => t.id === id);
+      const updatedTemplate: PromptTemplate = { id, name, text, isDefault: true };
+      
+      if (existingOverride >= 0) {
+        customTemplates[existingOverride] = updatedTemplate;
+      } else {
+        customTemplates.push(updatedTemplate);
+      }
+      saveCustomTemplates(customTemplates);
+      
+      // Merge default templates with overrides
+      const mergedTemplates = DEFAULT_TEMPLATES.map(dt => {
+        const override = customTemplates.find(ct => ct.id === dt.id);
+        return override || dt;
+      });
+      const nonDefaultCustom = customTemplates.filter(ct => !DEFAULT_TEMPLATES.some(dt => dt.id === ct.id));
+      set({ promptTemplates: [...mergedTemplates, ...nonDefaultCustom] });
+    } else {
+      // For custom templates, update directly
+      const customTemplates = loadCustomTemplates();
+      const index = customTemplates.findIndex(t => t.id === id);
+      if (index >= 0) {
+        customTemplates[index] = { id, name, text, isDefault: false };
+        saveCustomTemplates(customTemplates);
+        set({ promptTemplates: [...DEFAULT_TEMPLATES, ...customTemplates] });
+      }
+    }
+  },
+
+  deleteTemplate: (id: string) => {
+    const { promptTemplates, selectedTemplateId, setSelectedTemplate } = get();
+    const template = promptTemplates.find(t => t.id === id);
+    
+    // Can't delete default templates (only reset them)
+    if (template?.isDefault) {
+      // If it was a modified default, remove the override
+      const customTemplates = loadCustomTemplates();
+      const filtered = customTemplates.filter(t => t.id !== id);
+      saveCustomTemplates(filtered);
+      
+      const mergedTemplates = DEFAULT_TEMPLATES.map(dt => {
+        const override = filtered.find(ct => ct.id === dt.id);
+        return override || dt;
+      });
+      const nonDefaultCustom = filtered.filter(ct => !DEFAULT_TEMPLATES.some(dt => dt.id === ct.id));
+      set({ promptTemplates: [...mergedTemplates, ...nonDefaultCustom] });
+      return;
+    }
+    
+    // Delete custom template
+    const customTemplates = loadCustomTemplates();
+    const filtered = customTemplates.filter(t => t.id !== id);
+    saveCustomTemplates(filtered);
+    set({ promptTemplates: [...DEFAULT_TEMPLATES, ...filtered] });
+    
+    // If deleted template was selected, switch to "none"
+    if (selectedTemplateId === id) {
+      setSelectedTemplate("none");
+    }
   },
 }));

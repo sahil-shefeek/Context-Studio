@@ -79,7 +79,7 @@ export function FilePreviewModal({ filePath, fileName, content, onClose }: FileP
       onClick={onClose}
     >
       <div 
-        className="w-[90%] max-w-4xl h-[80vh] bg-[var(--bg-primary)] rounded-lg border border-[var(--border-color)] shadow-2xl flex flex-col overflow-hidden"
+        className="w-[90%] max-w-4xl h-[80vh] bg-(--bg-primary) rounded-lg border border-[var(--border-color)] shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

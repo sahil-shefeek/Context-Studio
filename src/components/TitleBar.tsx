@@ -1,11 +1,13 @@
-import { Minus, Square, X, Maximize2 } from "lucide-react";
+import { Minus, Square, X, Maximize2, Settings } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platform } from "@tauri-apps/plugin-os";
 import { useState, useEffect } from "react";
+import { useAppStore } from "../store/appStore";
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMacOS, setIsMacOS] = useState(false);
+  const { openSettings } = useAppStore();
 
   useEffect(() => {
     // Check platform to hide window controls on macOS
@@ -67,32 +69,45 @@ export function TitleBar() {
         </span>
       </div>
 
-      {/* Right: Window controls - NOT draggable, hidden on macOS */}
-      {!isMacOS && (
-        <div className="flex items-center h-full">
-          <button
-            onClick={handleMinimize}
-            className="h-full px-4 flex items-center justify-center hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            title="Minimize"
-          >
-            <Minus className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleMaximize}
-            className="h-full px-4 flex items-center justify-center hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            title={isMaximized ? "Restore" : "Maximize"}
-          >
-            {isMaximized ? <Square className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-          </button>
-          <button
-            onClick={handleClose}
-            className="h-full px-4 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors text-[var(--text-secondary)]"
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* Right: Settings + Window controls */}
+      <div className="flex items-center h-full">
+        {/* Settings button */}
+        <button
+          onClick={openSettings}
+          className="h-full px-3 flex items-center justify-center hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          title="Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+
+        {/* Window controls - hidden on macOS */}
+        {!isMacOS && (
+          <>
+            <div className="w-px h-4 bg-[var(--border-color)]" />
+            <button
+              onClick={handleMinimize}
+              className="h-full px-4 flex items-center justify-center hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              title="Minimize"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleMaximize}
+              className="h-full px-4 flex items-center justify-center hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              title={isMaximized ? "Restore" : "Maximize"}
+            >
+              {isMaximized ? <Square className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={handleClose}
+              className="h-full px-4 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors text-[var(--text-secondary)]"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

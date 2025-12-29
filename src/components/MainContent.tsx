@@ -1,7 +1,7 @@
-import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck, PanelLeft, Clock, Pencil, Sparkles } from "lucide-react";
+import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck, PanelLeft, Clock, Pencil, Sparkles, X } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { useState, useCallback, useEffect } from "react";
-import { Button } from "./ui";
+import { Button, Select } from "./ui";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
 
 export function MainContent() {
@@ -19,6 +19,11 @@ export function MainContent() {
     toggleSidebar,
     recentFolders,
     openRecentFolder,
+    removeRecentFolder,
+    promptTemplates,
+    selectedTemplateId,
+    setSelectedTemplate,
+    getOutputWithTemplate,
   } = useAppStore();
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -26,6 +31,12 @@ export function MainContent() {
 
   const hasOutput = generatedOutput.length > 0;
   const hasProject = !!fileTree;
+
+  // Convert templates to select options
+  const templateOptions = promptTemplates.map(t => ({
+    value: t.id,
+    label: t.name,
+  }));
 
   // Track when content is generated vs edited
   useEffect(() => {
@@ -46,9 +57,11 @@ export function MainContent() {
   };
 
   const handleCopy = async () => {
-    if (!generatedOutput) return;
+    // Use output with template prepended
+    const outputWithTemplate = getOutputWithTemplate();
+    if (!outputWithTemplate) return;
     try {
-      await navigator.clipboard.writeText(generatedOutput);
+      await navigator.clipboard.writeText(outputWithTemplate);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -57,8 +70,10 @@ export function MainContent() {
   };
 
   const handleExport = () => {
-    if (!generatedOutput) return;
-    const blob = new Blob([generatedOutput], { type: "text/markdown" });
+    // Use output with template prepended
+    const outputWithTemplate = getOutputWithTemplate();
+    if (!outputWithTemplate) return;
+    const blob = new Blob([outputWithTemplate], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -107,6 +122,17 @@ export function MainContent() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Prompt Template dropdown - only show when project is open */}
+          {hasProject && (
+            <Select
+              value={selectedTemplateId}
+              onValueChange={setSelectedTemplate}
+              options={templateOptions}
+              placeholder="Select template..."
+              className="w-40"
+            />
+          )}
+
           {/* Privacy Filter toggle - only show when project is open */}
           {hasProject && (
             <Button
@@ -191,21 +217,35 @@ export function MainContent() {
                   </div>
                   <div className="space-y-2">
                     {recentFolders.map((folder) => (
-                      <button
+                      <div
                         key={folder.path}
-                        onClick={() => openRecentFolder(folder.path)}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] border border-[var(--border-color)] transition-colors text-left group"
                       >
-                        <FolderOpen className="w-5 h-5 text-[var(--accent-color)] flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <span className="block text-sm font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent-color)]">
-                            {folder.name}
-                          </span>
-                          <span className="block text-xs text-[var(--text-muted)] truncate">
-                            {folder.path}
-                          </span>
-                        </div>
-                      </button>
+                        <button
+                          onClick={() => openRecentFolder(folder.path)}
+                          className="flex items-center gap-3 flex-1 min-w-0"
+                        >
+                          <FolderOpen className="w-5 h-5 text-[var(--accent-color)] flex-shrink-0" />
+                          <div className="flex-1 min-w-0 text-left">
+                            <span className="block text-sm font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent-color)]">
+                              {folder.name}
+                            </span>
+                            <span className="block text-xs text-[var(--text-muted)] truncate">
+                              {folder.path}
+                            </span>
+                          </div>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeRecentFolder(folder.path);
+                          }}
+                          className="p-1.5 rounded hover:bg-red-500/20 text-[var(--text-muted)] hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Remove from recent"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>

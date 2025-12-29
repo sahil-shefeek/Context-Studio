@@ -19,6 +19,47 @@ export interface RecentFolder {
   lastOpened: number;
 }
 
+// Prompt template
+export interface PromptTemplate {
+  id: string;
+  name: string;
+  text: string;
+}
+
+// Default prompt templates
+const DEFAULT_TEMPLATES: PromptTemplate[] = [
+  {
+    id: "none",
+    name: "No Template",
+    text: "",
+  },
+  {
+    id: "general",
+    name: "General Context",
+    text: "Please use the following project structure and file contents as context for our conversation.\n\n",
+  },
+  {
+    id: "code-review",
+    name: "Code Review",
+    text: "Act as a Senior Developer. Review the following code for bugs, security vulnerabilities, and performance bottlenecks.\n\n",
+  },
+  {
+    id: "refactor",
+    name: "Refactor",
+    text: "Suggest improvements to the following code to make it more readable, modular, and maintainable.\n\n",
+  },
+  {
+    id: "explain",
+    name: "Explain Code",
+    text: "Please explain what this code does, including its main components and how they interact.\n\n",
+  },
+  {
+    id: "debug",
+    name: "Debug Helper",
+    text: "I'm experiencing an issue with this code. Please analyze it and help me identify potential bugs or problems.\n\n",
+  },
+];
+
 interface AppState {
   // State
   rootPath: string | null;
@@ -34,10 +75,15 @@ interface AppState {
   recentFolders: RecentFolder[];
   fileTokenMap: Map<string, number>; // Map of file path to token count
   
+  // Prompt Templates
+  promptTemplates: PromptTemplate[];
+  selectedTemplateId: string;
+  
   // UI State
   sidebarCollapsed: boolean;
   previewFile: { path: string; name: string; content: string } | null;
   isPrivacyFilterEnabled: boolean;
+  isSettingsOpen: boolean;
 
   // Actions
   scanDirectory: (path: string) => Promise<void>;
@@ -54,8 +100,16 @@ interface AppState {
   togglePrivacyFilter: () => void;
   loadRecentFolders: () => void;
   openRecentFolder: (path: string) => Promise<void>;
+  removeRecentFolder: (path: string) => void;
+  clearAllRecentFolders: () => void;
   getFileTokenPercentage: (path: string) => number;
   getFolderTokenPercentage: (node: FileNode) => number;
+  setSelectedTemplate: (templateId: string) => void;
+  getOutputWithTemplate: () => string;
+  openSettings: () => void;
+  closeSettings: () => void;
+  clearAllStorage: () => void;
+  restoreSession: () => Promise<void>;
 }
 
 // Helper to get all paths from a node (including children)
@@ -187,6 +241,45 @@ function saveRecentFolders(folders: RecentFolder[]) {
   localStorage.setItem("recentFolders", JSON.stringify(folders.slice(0, 5)));
 }
 
+// Load selected template from localStorage
+function loadSelectedTemplateFromStorage(): string {
+  return localStorage.getItem("selectedTemplate") || "none";
+}
+
+// Save selected template to localStorage
+function saveSelectedTemplate(templateId: string) {
+  localStorage.setItem("selectedTemplate", templateId);
+}
+
+// Session state interface
+interface SessionState {
+  rootPath: string;
+  selectedPaths: string[];
+}
+
+// Load session state from localStorage
+function loadSessionState(): SessionState | null {
+  try {
+    const saved = localStorage.getItem("sessionState");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return null;
+}
+
+// Save session state to localStorage
+function saveSessionState(rootPath: string, selectedPaths: string[]) {
+  localStorage.setItem("sessionState", JSON.stringify({ rootPath, selectedPaths }));
+}
+
+// Clear session state from localStorage
+function clearSessionState() {
+  localStorage.removeItem("sessionState");
+}
+
 // Add folder to recent list
 function addToRecentFolders(path: string, existingFolders: RecentFolder[]): RecentFolder[] {
   const name = path.split('/').pop() || path;
@@ -249,10 +342,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   recentFolders: loadRecentFoldersFromStorage(),
   fileTokenMap: new Map(),
   
+  // Prompt Templates
+  promptTemplates: DEFAULT_TEMPLATES,
+  selectedTemplateId: loadSelectedTemplateFromStorage(),
+  
   // UI State
   sidebarCollapsed: true,
   previewFile: null,
   isPrivacyFilterEnabled: false,
+  isSettingsOpen: false,
 
   // Actions
   scanDirectory: async (path: string) => {
@@ -274,6 +372,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         fileTokenMap: new Map(),
         sidebarCollapsed: false, // Expand sidebar when folder is opened
       });
+      
+      // Save session state
+      saveSessionState(path, []);
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : String(err),
@@ -283,7 +384,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   togglePath: (path: string, node: FileNode) => {
-    const { selectedPaths, generateContext } = get();
+    const { selectedPaths, generateContext, rootPath } = get();
     const newSelected = new Set(selectedPaths);
     
     // Get all paths for this node (if directory, includes all children)
@@ -307,6 +408,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Update selection immediately for snappy UI
     set({ selectedPaths: newSelected });
     
+    // Save session state
+    if (rootPath) {
+      saveSessionState(rootPath, Array.from(newSelected));
+    }
+    
     // Debounce the heavy lifting (file reading, token counting)
     if (debounceTimer) clearTimeout(debounceTimer);
     set({ isGenerating: true }); // Show loading state immediately
@@ -316,10 +422,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   selectAll: () => {
-    const { fileTree, generateContext } = get();
+    const { fileTree, generateContext, rootPath } = get();
     if (fileTree) {
       const allPaths = getAllPaths(fileTree);
       set({ selectedPaths: new Set(allPaths) });
+      
+      // Save session state
+      if (rootPath) {
+        saveSessionState(rootPath, allPaths);
+      }
       
       // Debounce the heavy lifting
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -331,6 +442,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deselectAll: () => {
+    const { rootPath } = get();
     // Cancel any pending generation
     if (debounceTimer) clearTimeout(debounceTimer);
     set({ 
@@ -341,6 +453,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       isGenerating: false,
       fileTokenMap: new Map(),
     });
+    
+    // Save session state (empty selection)
+    if (rootPath) {
+      saveSessionState(rootPath, []);
+    }
   },
 
   clearFileTree: () => {
@@ -537,5 +654,86 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     
     return Math.round((folderTokens / tokenCount) * 100);
+  },
+
+  removeRecentFolder: (path: string) => {
+    const { recentFolders } = get();
+    const updated = recentFolders.filter(f => f.path !== path);
+    saveRecentFolders(updated);
+    set({ recentFolders: updated });
+  },
+
+  clearAllRecentFolders: () => {
+    saveRecentFolders([]);
+    set({ recentFolders: [] });
+  },
+
+  setSelectedTemplate: (templateId: string) => {
+    saveSelectedTemplate(templateId);
+    set({ selectedTemplateId: templateId });
+  },
+
+  getOutputWithTemplate: () => {
+    const { generatedOutput, promptTemplates, selectedTemplateId } = get();
+    const template = promptTemplates.find(t => t.id === selectedTemplateId);
+    if (template && template.text) {
+      return template.text + generatedOutput;
+    }
+    return generatedOutput;
+  },
+
+  openSettings: () => {
+    set({ isSettingsOpen: true });
+  },
+
+  closeSettings: () => {
+    set({ isSettingsOpen: false });
+  },
+
+  clearAllStorage: () => {
+    localStorage.removeItem("recentFolders");
+    localStorage.removeItem("sessionState");
+    localStorage.removeItem("selectedTemplate");
+    // Keep theme preference
+    set({
+      recentFolders: [],
+      selectedTemplateId: "none",
+    });
+    clearSessionState();
+  },
+
+  restoreSession: async () => {
+    const session = loadSessionState();
+    if (session && session.rootPath) {
+      try {
+        const tree = await invoke<FileNode>("get_file_tree", { basePath: session.rootPath });
+        
+        // Restore selected paths that still exist in the tree
+        const allPaths = getAllPaths(tree);
+        const validSelectedPaths = session.selectedPaths.filter(p => allPaths.includes(p));
+        
+        const { recentFolders, generateContext } = get();
+        const updatedRecent = addToRecentFolders(session.rootPath, recentFolders);
+        
+        set({
+          rootPath: session.rootPath,
+          fileTree: tree,
+          selectedPaths: new Set(validSelectedPaths),
+          isScanning: false,
+          recentFolders: updatedRecent,
+          sidebarCollapsed: false,
+        });
+        
+        // Generate context if there were selected paths
+        if (validSelectedPaths.length > 0) {
+          set({ isGenerating: true });
+          setTimeout(() => generateContext(), 100);
+        }
+      } catch (err) {
+        // Session restore failed, clear it
+        console.error("Failed to restore session:", err);
+        clearSessionState();
+      }
+    }
   },
 }));

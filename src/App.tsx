@@ -1,14 +1,19 @@
 import { useEffect } from "react";
-import { Sidebar, MainContent, TitleBar, FilePreviewModal } from "./components";
+import { Sidebar, MainContent, TitleBar, FilePreviewModal, SettingsModal } from "./components";
 import { useAppStore } from "./store/appStore";
 
 function App() {
-  const { theme, previewFile, closeFilePreview } = useAppStore();
+  const { theme, previewFile, closeFilePreview, restoreSession } = useAppStore();
 
   // Apply theme class on mount and when theme changes
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
+
+  // Restore previous session on mount
+  useEffect(() => {
+    restoreSession();
+  }, [restoreSession]);
 
   // Disable browser context menu globally for native app feel
   useEffect(() => {
@@ -36,6 +41,9 @@ function App() {
           onClose={closeFilePreview}
         />
       )}
+
+      {/* Settings Modal */}
+      <SettingsModal />
     </div>
   );
 }

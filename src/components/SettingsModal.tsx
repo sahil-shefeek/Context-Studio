@@ -1,7 +1,5 @@
 import { 
-  X, 
   Trash2, 
-  Info, 
   Github, 
   FolderOpen, 
   Gauge, 
@@ -14,9 +12,26 @@ import {
   Edit2,
   Check,
   XCircle,
+  RotateCcw,
+  Info,
 } from "lucide-react";
 import { useAppStore, FRAMEWORK_PRESETS, PromptTemplate } from "../store/appStore";
-import { Button } from "./ui";
+import { 
+  Button, 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  Switch,
+  Checkbox,
+  Input,
+  Textarea,
+  Separator,
+} from "./ui";
 import { useState, useEffect } from "react";
 
 type SettingsTab = "general" | "context" | "ignore" | "templates" | "about";
@@ -52,6 +67,7 @@ export function SettingsModal() {
     addTemplate,
     updateTemplate,
     deleteTemplate,
+    resetTemplatesToDefault,
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
@@ -75,8 +91,6 @@ export function SettingsModal() {
       setPatternsChanged(false);
     }
   }, [isSettingsOpen, targetContextWindow, customIgnorePatterns, maxFileSizeKb]);
-
-  if (!isSettingsOpen) return null;
 
   const handleClearAll = () => {
     if (confirm("Are you sure you want to clear all stored data? This will remove recent folders and session state.")) {
@@ -116,7 +130,6 @@ export function SettingsModal() {
   const handleApplyIgnorePatterns = async () => {
     setCustomIgnorePatterns(localIgnorePatterns);
     setPatternsChanged(false);
-    // Re-scan the current folder if one is open
     if (rootPath) {
       await scanDirectory(rootPath);
     }
@@ -144,61 +157,57 @@ export function SettingsModal() {
     setNewTemplateText(template.text);
   };
 
-  const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-    { id: "general", label: "General", icon: <Settings className="w-4 h-4" /> },
-    { id: "context", label: "Context", icon: <Gauge className="w-4 h-4" /> },
-    { id: "ignore", label: "Ignore Rules", icon: <Filter className="w-4 h-4" /> },
-    { id: "templates", label: "Templates", icon: <FileText className="w-4 h-4" /> },
-    { id: "about", label: "About", icon: <Info className="w-4 h-4" /> },
-  ];
+  const handleRestoreDefaults = () => {
+    if (confirm("This will remove all custom templates and reset defaults. Continue?")) {
+      resetTemplatesToDefault();
+    }
+  };
+
+  // Check if there are any custom templates
+  const hasCustomTemplates = promptTemplates.some(t => !t.isDefault);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) closeSettings();
-      }}
-    >
-      <div className="relative w-full max-w-2xl mx-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl shadow-2xl animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] shrink-0">
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Settings</h2>
-          <Button variant="ghost" size="icon-sm" onClick={closeSettings}>
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
+    <Dialog open={isSettingsOpen} onOpenChange={(open) => !open && closeSettings()}>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 py-4 border-b border-(--border-color) shrink-0">
+          <DialogTitle>Settings</DialogTitle>
+        </DialogHeader>
 
-        <div className="flex flex-1 min-h-0">
-          {/* Sidebar Tabs */}
-          <div className="w-44 border-r border-[var(--border-color)] py-2 shrink-0">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
-                  activeTab === tab.id
-                    ? "bg-[var(--accent-color)]/10 text-[var(--accent-color)] border-r-2 border-[var(--accent-color)]"
-                    : "text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]"
-                }`}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SettingsTab)} className="flex-1 flex flex-col min-h-0">
+          <div className="flex flex-1 min-h-0">
+            {/* Sidebar Tabs */}
+            <div className="w-44 border-r border-(--border-color) py-2 shrink-0">
+              <TabsList className="flex flex-col h-auto w-full bg-transparent gap-0.5 p-0">
+                {[
+                  { id: "general", label: "General", icon: <Settings className="w-4 h-4" /> },
+                  { id: "context", label: "Context", icon: <Gauge className="w-4 h-4" /> },
+                  { id: "ignore", label: "Ignore Rules", icon: <Filter className="w-4 h-4" /> },
+                  { id: "templates", label: "Templates", icon: <FileText className="w-4 h-4" /> },
+                  { id: "about", label: "About", icon: <Info className="w-4 h-4" /> },
+                ].map((tab) => (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="w-full justify-start gap-2 px-4 py-2.5 rounded-none data-[state=active]:bg-(--accent-color)/10 data-[state=active]:text-(--accent-color) data-[state=active]:border-r-2 data-[state=active]:border-(--accent-color) data-[state=active]:shadow-none"
+                  >
+                    {tab.icon}
+                    <span>{tab.label}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            {/* General Tab */}
-            {activeTab === "general" && (
-              <div className="space-y-6">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* General Tab */}
+              <TabsContent value="general" className="mt-0 space-y-6">
                 {/* Theme Selection */}
                 <section>
-                  <h3 className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-3">
-                    <Palette className="w-4 h-4 text-[var(--accent-color)]" />
+                  <h3 className="flex items-center gap-2 text-sm font-medium text-(--text-primary) mb-3">
+                    <Palette className="w-4 h-4 text-(--accent-color)" />
                     Theme
                   </h3>
-                  <div className="bg-[var(--bg-tertiary)] rounded-lg p-4">
+                  <div className="bg-(--bg-tertiary) rounded-lg p-4">
                     <div className="flex gap-2">
                       {(["light", "dark", "system"] as const).map((t) => (
                         <button
@@ -206,58 +215,54 @@ export function SettingsModal() {
                           onClick={() => setTheme(t)}
                           className={`flex-1 px-4 py-2 text-sm rounded-lg border transition-colors capitalize ${
                             theme === t
-                              ? "bg-[var(--accent-color)] border-[var(--accent-color)] text-white"
-                              : "border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent-color)] hover:text-[var(--text-primary)]"
+                              ? "bg-(--accent-color) border-(--accent-color) text-white"
+                              : "border-(--border-color) text-(--text-secondary) hover:border-(--accent-color) hover:text-(--text-primary)"
                           }`}
                         >
                           {t}
                         </button>
                       ))}
                     </div>
-                    <p className="text-xs text-[var(--text-muted)] mt-2">
+                    <p className="text-xs text-(--text-muted) mt-2">
                       "System" follows your OS preference automatically.
                     </p>
                   </div>
                 </section>
 
+                <Separator />
+
                 {/* Session Restore */}
                 <section>
-                  <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">Startup Behavior</h3>
-                  <div className="bg-[var(--bg-tertiary)] rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-(--text-primary) mb-3">Startup Behavior</h3>
+                  <div className="bg-(--bg-tertiary) rounded-lg p-4">
                     <label className="flex items-center justify-between cursor-pointer">
                       <div>
-                        <span className="text-sm text-[var(--text-primary)]">Restore previous session on startup</span>
-                        <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                        <span className="text-sm text-(--text-primary)">Restore previous session on startup</span>
+                        <p className="text-xs text-(--text-muted) mt-0.5">
                           Automatically reopen your last project and file selection
                         </p>
                       </div>
-                      <button
-                        onClick={() => setRestoreSessionOnStartup(!restoreSessionOnStartup)}
-                        className={`relative w-11 h-6 rounded-full transition-colors ${
-                          restoreSessionOnStartup ? "bg-[var(--accent-color)]" : "bg-[var(--bg-secondary)]"
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                            restoreSessionOnStartup ? "translate-x-6" : "translate-x-1"
-                          }`}
-                        />
-                      </button>
+                      <Switch
+                        checked={restoreSessionOnStartup}
+                        onCheckedChange={setRestoreSessionOnStartup}
+                      />
                     </label>
                   </div>
                 </section>
 
+                <Separator />
+
                 {/* Data Management Section */}
                 <section>
-                  <h3 className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-3">
-                    <FolderOpen className="w-4 h-4 text-[var(--accent-color)]" />
+                  <h3 className="flex items-center gap-2 text-sm font-medium text-(--text-primary) mb-3">
+                    <FolderOpen className="w-4 h-4 text-(--accent-color)" />
                     Data Management
                   </h3>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between bg-[var(--bg-tertiary)] rounded-lg p-3">
+                    <div className="flex items-center justify-between bg-(--bg-tertiary) rounded-lg p-3">
                       <div>
-                        <p className="text-sm font-medium text-[var(--text-primary)]">Recent Folders</p>
-                        <p className="text-xs text-[var(--text-muted)]">
+                        <p className="text-sm font-medium text-(--text-primary)">Recent Folders</p>
+                        <p className="text-xs text-(--text-muted)">
                           {recentFolders.length} folder{recentFolders.length !== 1 ? "s" : ""} saved
                         </p>
                       </div>
@@ -273,10 +278,10 @@ export function SettingsModal() {
                       </Button>
                     </div>
 
-                    <div className="flex items-center justify-between bg-[var(--bg-tertiary)] rounded-lg p-3">
+                    <div className="flex items-center justify-between bg-(--bg-tertiary) rounded-lg p-3">
                       <div>
-                        <p className="text-sm font-medium text-[var(--text-primary)]">All Stored Data</p>
-                        <p className="text-xs text-[var(--text-muted)]">
+                        <p className="text-sm font-medium text-(--text-primary)">All Stored Data</p>
+                        <p className="text-xs text-(--text-muted)">
                           Recent folders, session state, preferences
                         </p>
                       </div>
@@ -292,32 +297,29 @@ export function SettingsModal() {
                     </div>
                   </div>
                 </section>
-              </div>
-            )}
+              </TabsContent>
 
-            {/* Context Tab */}
-            {activeTab === "context" && (
-              <div className="space-y-6">
+              {/* Context Tab */}
+              <TabsContent value="context" className="mt-0 space-y-6">
                 {/* Context Window Settings */}
                 <section>
-                  <h3 className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-3">
-                    <Gauge className="w-4 h-4 text-[var(--accent-color)]" />
+                  <h3 className="flex items-center gap-2 text-sm font-medium text-(--text-primary) mb-3">
+                    <Gauge className="w-4 h-4 text-(--accent-color)" />
                     Target Context Window
                   </h3>
-                  <div className="bg-[var(--bg-tertiary)] rounded-lg p-4 space-y-3">
+                  <div className="bg-(--bg-tertiary) rounded-lg p-4 space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
+                      <label className="block text-sm font-medium text-(--text-primary) mb-1">
                         Token Limit
                       </label>
-                      <input
+                      <Input
                         type="number"
                         value={localContextWindow}
                         onChange={handleContextWindowChange}
                         min="1000"
                         step="1000"
-                        className="w-full px-3 py-2 text-sm rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
                       />
-                      <p className="text-xs text-[var(--text-muted)] mt-1">
+                      <p className="text-xs text-(--text-muted) mt-1">
                         Set the target token limit for your AI model (e.g., 128000 for GPT-4, 200000 for Claude)
                       </p>
                     </div>
@@ -331,8 +333,8 @@ export function SettingsModal() {
                           }}
                           className={`px-3 py-1.5 text-xs rounded border transition-colors ${
                             targetContextWindow === preset
-                              ? "bg-[var(--accent-color)] border-[var(--accent-color)] text-white"
-                              : "border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent-color)]"
+                              ? "bg-(--accent-color) border-(--accent-color) text-white"
+                              : "border-(--border-color) text-(--text-secondary) hover:border-(--accent-color)"
                           }`}
                         >
                           {(preset / 1000)}K
@@ -342,25 +344,23 @@ export function SettingsModal() {
                   </div>
                 </section>
 
+                <Separator />
+
                 {/* Max File Size */}
                 <section>
-                  <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">Max File Size</h3>
-                  <div className="bg-[var(--bg-tertiary)] rounded-lg p-4 space-y-3">
+                  <h3 className="text-sm font-medium text-(--text-primary) mb-3">Max File Size</h3>
+                  <div className="bg-(--bg-tertiary) rounded-lg p-4 space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
+                      <label className="block text-sm font-medium text-(--text-primary) mb-1">
                         Size Limit (KB)
                       </label>
-                      <input
+                      <Input
                         type="number"
                         value={localMaxFileSize}
                         onChange={handleMaxFileSizeChange}
                         min="64"
                         step="64"
-                        className="w-full px-3 py-2 text-sm rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
                       />
-                      <p className="text-xs text-[var(--text-muted)] mt-1">
-                        Files larger than this will show a placeholder instead of contents
-                      </p>
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       {[256, 512, 1024, 2048, 5120].map((preset) => (
@@ -372,101 +372,97 @@ export function SettingsModal() {
                           }}
                           className={`px-3 py-1.5 text-xs rounded border transition-colors ${
                             maxFileSizeKb === preset
-                              ? "bg-[var(--accent-color)] border-[var(--accent-color)] text-white"
-                              : "border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent-color)]"
+                              ? "bg-(--accent-color) border-(--accent-color) text-white"
+                              : "border-(--border-color) text-(--text-secondary) hover:border-(--accent-color)"
                           }`}
                         >
                           {preset >= 1024 ? `${preset / 1024}MB` : `${preset}KB`}
                         </button>
                       ))}
                     </div>
-                    <p className="text-xs text-yellow-500 flex items-center gap-1">
-                      ⚠️ Large file sizes may impact performance and exceed AI context limits
-                    </p>
+                    <div className="p-3 bg-(--bg-secondary) rounded-md border border-(--border-color)">
+                      <p className="text-xs text-(--text-secondary) leading-relaxed">
+                        Files larger than this limit will be skipped. Lowering this value improves app performance 
+                        and prevents very large files from "drowning out" relevant information in the AI's context 
+                        (avoiding the "Lost in the Middle" effect).
+                      </p>
+                    </div>
                   </div>
                 </section>
-              </div>
-            )}
+              </TabsContent>
 
-            {/* Ignore Rules Tab */}
-            {activeTab === "ignore" && (
-              <div className="space-y-6">
+              {/* Ignore Rules Tab */}
+              <TabsContent value="ignore" className="mt-0 space-y-6">
                 {/* Respect Ignore Files */}
                 <section>
-                  <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">Respect Ignore Files</h3>
-                  <div className="bg-[var(--bg-tertiary)] rounded-lg p-4 space-y-3">
+                  <h3 className="text-sm font-medium text-(--text-primary) mb-3">Respect Ignore Files</h3>
+                  <div className="bg-(--bg-tertiary) rounded-lg p-4 space-y-3">
                     {[
                       { key: "gitignore", label: ".gitignore", enabled: respectGitignore, toggle: setRespectGitignore },
                       { key: "aiignore", label: ".aiignore", enabled: respectAiignore, toggle: setRespectAiignore },
                       { key: "dockerignore", label: ".dockerignore", enabled: respectDockerignore, toggle: setRespectDockerignore },
                     ].map(({ key, label, enabled, toggle }) => (
                       <label key={key} className="flex items-center justify-between cursor-pointer">
-                        <span className="text-sm text-[var(--text-primary)]">{label}</span>
-                        <button
-                          onClick={() => toggle(!enabled)}
-                          className={`relative w-11 h-6 rounded-full transition-colors ${
-                            enabled ? "bg-[var(--accent-color)]" : "bg-[var(--bg-secondary)]"
-                          }`}
-                        >
-                          <span
-                            className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                              enabled ? "translate-x-6" : "translate-x-1"
-                            }`}
-                          />
-                        </button>
+                        <span className="text-sm text-(--text-primary)">{label}</span>
+                        <Switch
+                          checked={enabled}
+                          onCheckedChange={toggle}
+                        />
                       </label>
                     ))}
-                    <p className="text-xs text-[var(--text-muted)] pt-2">
+                    <p className="text-xs text-(--text-muted) pt-2">
                       When enabled, files matching patterns in these files will be hidden from the tree
                     </p>
                   </div>
                 </section>
 
+                <Separator />
+
                 {/* Framework Presets */}
                 <section>
-                  <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">Framework Presets</h3>
-                  <div className="bg-[var(--bg-tertiary)] rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-(--text-primary) mb-3">Framework Presets</h3>
+                  <div className="bg-(--bg-tertiary) rounded-lg p-4">
                     <div className="grid grid-cols-2 gap-2">
                       {FRAMEWORK_PRESETS.map((preset) => (
                         <label
                           key={preset.id}
-                          className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-[var(--bg-secondary)] transition-colors"
+                          className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-(--bg-secondary) transition-colors"
                         >
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={frameworkPresets.includes(preset.id)}
-                            onChange={() => toggleFrameworkPreset(preset.id)}
-                            className="w-4 h-4 rounded border-[var(--border-color)] text-[var(--accent-color)] focus:ring-[var(--accent-color)]"
+                            onCheckedChange={() => toggleFrameworkPreset(preset.id)}
                           />
-                          <span className="text-sm text-[var(--text-primary)]">{preset.name}</span>
+                          <span className="text-sm text-(--text-primary)">{preset.name}</span>
                         </label>
                       ))}
                     </div>
-                    <p className="text-xs text-[var(--text-muted)] mt-3">
+                    <p className="text-xs text-(--text-muted) mt-3">
                       Select frameworks to automatically ignore their build artifacts and dependencies
                     </p>
                   </div>
                 </section>
 
+                <Separator />
+
                 {/* Custom Ignore Patterns */}
                 <section>
-                  <h3 className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-3">
-                    <Filter className="w-4 h-4 text-[var(--accent-color)]" />
+                  <h3 className="flex items-center gap-2 text-sm font-medium text-(--text-primary) mb-3">
+                    <Filter className="w-4 h-4 text-(--accent-color)" />
                     Custom Patterns
                   </h3>
-                  <div className="bg-[var(--bg-tertiary)] rounded-lg p-4 space-y-3">
+                  <div className="bg-(--bg-tertiary) rounded-lg p-4 space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
+                      <label className="block text-sm font-medium text-(--text-primary) mb-1">
                         Patterns (one per line)
                       </label>
-                      <textarea
+                      <Textarea
                         value={localIgnorePatterns}
                         onChange={handleIgnorePatternsChange}
                         rows={6}
                         placeholder={"# Example patterns:\n*.log\n*.tmp\ntest_data\nsecrets.json"}
-                        className="w-full px-3 py-2 text-sm rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] font-mono resize-none"
+                        className="font-mono"
                       />
-                      <p className="text-xs text-[var(--text-muted)] mt-1">
+                      <p className="text-xs text-(--text-muted) mt-1">
                         Use *.ext for extensions, folder names, or # for comments
                       </p>
                     </div>
@@ -483,48 +479,57 @@ export function SettingsModal() {
                     )}
                   </div>
                 </section>
-              </div>
-            )}
+              </TabsContent>
 
-            {/* Templates Tab */}
-            {activeTab === "templates" && (
-              <div className="space-y-6">
+              {/* Templates Tab */}
+              <TabsContent value="templates" className="mt-0 space-y-6">
                 <section>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
-                      <FileText className="w-4 h-4 text-[var(--accent-color)]" />
+                    <h3 className="flex items-center gap-2 text-sm font-medium text-(--text-primary)">
+                      <FileText className="w-4 h-4 text-(--accent-color)" />
                       Prompt Templates
                     </h3>
-                    {!isAddingTemplate && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => setIsAddingTemplate(true)}
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Template
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {hasCustomTemplates && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRestoreDefaults}
+                          title="Reset all templates to defaults"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Restore Defaults
+                        </Button>
+                      )}
+                      {!isAddingTemplate && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => setIsAddingTemplate(true)}
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Template
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Add Template Form */}
                   {isAddingTemplate && (
-                    <div className="bg-[var(--bg-tertiary)] rounded-lg p-4 mb-4 border-2 border-[var(--accent-color)]">
-                      <h4 className="text-sm font-medium text-[var(--text-primary)] mb-3">New Template</h4>
+                    <div className="bg-(--bg-tertiary) rounded-lg p-4 mb-4 border-2 border-(--accent-color)">
+                      <h4 className="text-sm font-medium text-(--text-primary) mb-3">New Template</h4>
                       <div className="space-y-3">
-                        <input
+                        <Input
                           type="text"
                           value={newTemplateName}
                           onChange={(e) => setNewTemplateName(e.target.value)}
                           placeholder="Template name..."
-                          className="w-full px-3 py-2 text-sm rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
                         />
-                        <textarea
+                        <Textarea
                           value={newTemplateText}
                           onChange={(e) => setNewTemplateText(e.target.value)}
                           placeholder="Template prompt text..."
                           rows={4}
-                          className="w-full px-3 py-2 text-sm rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] resize-none"
                         />
                         <div className="flex gap-2 justify-end">
                           <Button
@@ -557,22 +562,21 @@ export function SettingsModal() {
                     {promptTemplates.map((template) => (
                       <div
                         key={template.id}
-                        className="bg-[var(--bg-tertiary)] rounded-lg p-4"
+                        className="bg-(--bg-tertiary) rounded-lg p-4"
                       >
                         {editingTemplate === template.id ? (
                           <div className="space-y-3">
-                            <input
+                            <Input
                               type="text"
                               value={newTemplateName}
                               onChange={(e) => setNewTemplateName(e.target.value)}
                               placeholder="Template name..."
-                              className="w-full px-3 py-2 text-sm rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
                             />
-                            <textarea
+                            <Textarea
                               value={newTemplateText}
                               onChange={(e) => setNewTemplateText(e.target.value)}
                               rows={4}
-                              className="w-full px-3 py-2 text-sm rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] resize-none font-mono text-xs"
+                              className="font-mono text-xs"
                             />
                             <div className="flex gap-2 justify-end">
                               <Button
@@ -597,86 +601,82 @@ export function SettingsModal() {
                             </div>
                           </div>
                         ) : (
-                          <>
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-[var(--text-primary)]">
-                                    {template.name}
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-(--text-primary)">
+                                  {template.name}
+                                </span>
+                                {template.isDefault && (
+                                  <span className="px-1.5 py-0.5 text-xs rounded bg-(--accent-color)/10 text-(--accent-color)">
+                                    Default
                                   </span>
-                                  {template.isDefault && (
-                                    <span className="px-1.5 py-0.5 text-xs rounded bg-[var(--accent-color)]/10 text-[var(--accent-color)]">
-                                      Default
-                                    </span>
-                                  )}
-                                </div>
-                                {template.text && (
-                                  <p className="text-xs text-[var(--text-muted)] mt-1 line-clamp-2">
-                                    {template.text}
-                                  </p>
                                 )}
                               </div>
-                              <div className="flex items-center gap-1 ml-2">
-                                {template.id !== "none" && (
-                                  <>
+                              {template.text && (
+                                <p className="text-xs text-(--text-muted) mt-1 line-clamp-2">
+                                  {template.text}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 ml-2">
+                              {template.id !== "none" && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    onClick={() => startEditingTemplate(template)}
+                                    title="Edit template"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                  {!template.isDefault && (
                                     <Button
                                       variant="ghost"
                                       size="icon-sm"
-                                      onClick={() => startEditingTemplate(template)}
-                                      title="Edit template"
+                                      onClick={() => {
+                                        if (confirm(`Delete template "${template.name}"?`)) {
+                                          deleteTemplate(template.id);
+                                        }
+                                      }}
+                                      className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                                      title="Delete template"
                                     >
-                                      <Edit2 className="w-4 h-4" />
+                                      <XCircle className="w-4 h-4" />
                                     </Button>
-                                    {!template.isDefault && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        onClick={() => {
-                                          if (confirm(`Delete template "${template.name}"?`)) {
-                                            deleteTemplate(template.id);
-                                          }
-                                        }}
-                                        className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
-                                        title="Delete template"
-                                      >
-                                        <XCircle className="w-4 h-4" />
-                                      </Button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
+                                  )}
+                                </>
+                              )}
                             </div>
-                          </>
+                          </div>
                         )}
                       </div>
                     ))}
                   </div>
                 </section>
-              </div>
-            )}
+              </TabsContent>
 
-            {/* About Tab */}
-            {activeTab === "about" && (
-              <div className="space-y-6">
+              {/* About Tab */}
+              <TabsContent value="about" className="mt-0 space-y-6">
                 <section>
-                  <div className="bg-[var(--bg-tertiary)] rounded-lg p-4 space-y-4">
+                  <div className="bg-(--bg-tertiary) rounded-lg p-4 space-y-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-[var(--accent-color)] flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-lg bg-(--accent-color) flex items-center justify-center">
                         <span className="text-white font-bold text-xl">CC</span>
                       </div>
                       <div>
-                        <h4 className="font-semibold text-[var(--text-primary)]">Context Catcher</h4>
-                        <p className="text-xs text-[var(--text-muted)]">Version 1.0.0</p>
+                        <h4 className="font-semibold text-(--text-primary)">Context Catcher</h4>
+                        <p className="text-xs text-(--text-muted)">Version 1.0.0</p>
                       </div>
                     </div>
-                    <p className="text-sm text-[var(--text-secondary)]">
+                    <p className="text-sm text-(--text-secondary)">
                       Aggregate project files into AI-friendly markdown context. Built with Tauri 2.0 + React.
                     </p>
                     <a
                       href="https://github.com/sahilsuman933/context-catcher"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-sm text-[var(--accent-color)] hover:underline"
+                      className="inline-flex items-center gap-2 text-sm text-(--accent-color) hover:underline"
                     >
                       <Github className="w-4 h-4" />
                       View on GitHub
@@ -684,38 +684,40 @@ export function SettingsModal() {
                   </div>
                 </section>
 
+                <Separator />
+
                 {/* Keyboard Shortcuts */}
                 <section>
-                  <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">
+                  <h3 className="text-sm font-medium text-(--text-primary) mb-3">
                     Keyboard Shortcuts
                   </h3>
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="flex items-center justify-between bg-[var(--bg-tertiary)] rounded px-3 py-2">
-                      <span className="text-[var(--text-secondary)]">Copy Output</span>
-                      <kbd className="px-2 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-muted)]">
+                    <div className="flex items-center justify-between bg-(--bg-tertiary) rounded px-3 py-2">
+                      <span className="text-(--text-secondary)">Copy Output</span>
+                      <kbd className="px-2 py-0.5 rounded bg-(--bg-secondary) border border-(--border-color) text-xs text-(--text-muted)">
                         ⌘C
                       </kbd>
                     </div>
-                    <div className="flex items-center justify-between bg-[var(--bg-tertiary)] rounded px-3 py-2">
-                      <span className="text-[var(--text-secondary)]">Export</span>
-                      <kbd className="px-2 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-muted)]">
+                    <div className="flex items-center justify-between bg-(--bg-tertiary) rounded px-3 py-2">
+                      <span className="text-(--text-secondary)">Export</span>
+                      <kbd className="px-2 py-0.5 rounded bg-(--bg-secondary) border border-(--border-color) text-xs text-(--text-muted)">
                         ⌘S
                       </kbd>
                     </div>
                   </div>
                 </section>
-              </div>
-            )}
+              </TabsContent>
+            </div>
           </div>
-        </div>
+        </Tabs>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-[var(--border-color)] shrink-0">
-          <p className="text-xs text-center text-[var(--text-muted)]">
+        <div className="px-6 py-3 border-t border-(--border-color) shrink-0">
+          <p className="text-xs text-center text-(--text-muted)">
             Made with ❤️ for AI-assisted development
           </p>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

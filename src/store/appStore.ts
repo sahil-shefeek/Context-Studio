@@ -176,6 +176,7 @@ interface AppState {
   addTemplate: (name: string, text: string) => void;
   updateTemplate: (id: string, name: string, text: string) => void;
   deleteTemplate: (id: string) => void;
+  resetTemplatesToDefault: () => void;
 }
 
 // Helper to get all paths from a node (including children)
@@ -1111,6 +1112,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     // If deleted template was selected, switch to "none"
     if (selectedTemplateId === id) {
+      setSelectedTemplate("none");
+    }
+  },
+
+  resetTemplatesToDefault: () => {
+    const { selectedTemplateId, setSelectedTemplate } = get();
+    
+    // Clear all custom templates from storage
+    saveCustomTemplates([]);
+    
+    // Reset to default templates only
+    set({ promptTemplates: [...DEFAULT_TEMPLATES] });
+    
+    // If selected template was a custom one, switch to "none"
+    const isDefaultTemplate = DEFAULT_TEMPLATES.some(t => t.id === selectedTemplateId);
+    if (!isDefaultTemplate) {
       setSelectedTemplate("none");
     }
   },

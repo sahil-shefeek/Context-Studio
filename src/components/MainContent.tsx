@@ -1,4 +1,4 @@
-import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck, PanelLeft, Clock, X, ChevronDown, AlertTriangle, Monitor } from "lucide-react";
+import { FileText, Copy, Download, FolderOpen, Loader2, Check, Shield, ShieldCheck, PanelLeft, Clock, X, ChevronDown, AlertTriangle } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { useState, useCallback, useMemo } from "react";
 import { Button, Select, Badge } from "./ui";
@@ -10,9 +10,7 @@ export function MainContent() {
     generatedOutput, 
     tokenCount, 
     isGenerating, 
-    theme,
     resolvedTheme,
-    setTheme, 
     setGeneratedOutput,
     isPrivacyFilterEnabled,
     setPrivacyFilterEnabled,
@@ -83,18 +81,6 @@ export function MainContent() {
   const confirmDisablePrivacy = () => {
     setPrivacyFilterEnabled(false);
     setShowPrivacyWarning(false);
-  };
-
-  // Cycle theme: dark -> light -> system
-  const cycleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : theme === "light" ? "system" : "dark";
-    setTheme(nextTheme);
-  };
-
-  // Get theme icon based on current setting
-  const getThemeIcon = () => {
-    if (theme === "system") return <Monitor className="w-4 h-4" />;
-    return resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />;
   };
 
   const handleCopy = async () => {
@@ -214,16 +200,6 @@ export function MainContent() {
               {isPrivacyFilterEnabled ? <ShieldCheck className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
             </Button>
           )}
-
-          {/* Theme toggle */}
-          <Button
-            variant="secondary"
-            size="icon-sm"
-            onClick={cycleTheme}
-            title={`Theme: ${theme} (click to change)`}
-          >
-            {getThemeIcon()}
-          </Button>
           
           {/* Only show action buttons when project is open */}
           {hasProject && (
@@ -362,7 +338,7 @@ export function MainContent() {
                 <CodeMirrorEditor
                   value={generatedOutput}
                   onChange={handleOutputChange}
-                  theme={theme}
+                  theme={resolvedTheme}
                   placeholder="Generated context will appear here..."
                 />
               </div>

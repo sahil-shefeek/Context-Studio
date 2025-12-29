@@ -48,13 +48,6 @@ function filterTree(node: FileNode, query: string): FileNode | null {
   return nameMatches ? node : null;
 }
 
-// Helper to count all files in a tree
-function countFiles(node: FileNode): number {
-  if (!node.is_dir) return 1;
-  if (!node.children) return 0;
-  return node.children.reduce((sum, child) => sum + countFiles(child), 0);
-}
-
 // FileTreeNode component for recursive rendering
 interface FileTreeNodeProps {
   node: FileNode;

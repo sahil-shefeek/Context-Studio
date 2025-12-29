@@ -1,6 +1,8 @@
-import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck } from "lucide-react";
+import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck, PanelLeft, Clock } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { useState, useCallback } from "react";
+import { Button } from "./ui";
+import { CodeMirrorEditor } from "./CodeMirrorEditor";
 
 export function MainContent() {
   const { 
@@ -12,11 +14,16 @@ export function MainContent() {
     toggleTheme, 
     setGeneratedOutput,
     isPrivacyFilterEnabled,
-    togglePrivacyFilter 
+    togglePrivacyFilter,
+    sidebarCollapsed,
+    toggleSidebar,
+    recentFolders,
+    openRecentFolder,
   } = useAppStore();
   const [copied, setCopied] = useState(false);
 
   const hasOutput = generatedOutput.length > 0;
+  const hasProject = !!fileTree;
 
   const handleCopy = async () => {
     if (!generatedOutput) return;
@@ -43,8 +50,8 @@ export function MainContent() {
   };
 
   // Handle manual text edits - updates counts automatically
-  const handleOutputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setGeneratedOutput(e.target.value);
+  const handleOutputChange = useCallback((value: string) => {
+    setGeneratedOutput(value);
   }, [setGeneratedOutput]);
 
   // Format token count with commas
@@ -52,63 +59,85 @@ export function MainContent() {
     return count.toLocaleString();
   };
 
+  // Header title based on project state
+  const headerTitle = hasProject ? "Output Preview" : "Context Catcher";
+
   return (
     <main className="flex-1 flex flex-col h-full bg-[var(--bg-primary)] relative">
       {/* Header */}
       <header className="px-6 py-4 border-b border-[var(--border-color)] flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {/* Show expand button when sidebar is collapsed */}
+          {sidebarCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={toggleSidebar}
+              title="Expand sidebar"
+            >
+              <PanelLeft className="w-5 h-5" />
+            </Button>
+          )}
           <FileText className="w-5 h-5 text-[var(--accent-color)]" />
-          <h1 className="text-lg font-semibold text-[var(--text-primary)]">Output Preview</h1>
+          <h1 className="text-lg font-semibold text-[var(--text-primary)]">{headerTitle}</h1>
           {isGenerating && (
             <Loader2 className="w-4 h-4 animate-spin text-[var(--accent-color)]" />
           )}
         </div>
         <div className="flex items-center gap-2">
-          {/* Privacy Filter toggle */}
-          <button
-            onClick={togglePrivacyFilter}
-            className={`p-2 rounded transition-colors ${
-              isPrivacyFilterEnabled 
-                ? "bg-green-500/20 text-green-500 hover:bg-green-500/30" 
-                : "bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            }`}
-            title={isPrivacyFilterEnabled ? "Privacy filter enabled - secrets are masked" : "Enable privacy filter to mask secrets"}
-          >
-            {isPrivacyFilterEnabled ? <ShieldCheck className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
-          </button>
+          {/* Privacy Filter toggle - only show when project is open */}
+          {hasProject && (
+            <Button
+              variant={isPrivacyFilterEnabled ? "default" : "secondary"}
+              size="icon-sm"
+              onClick={togglePrivacyFilter}
+              className={isPrivacyFilterEnabled ? "bg-green-500/20 text-green-500 hover:bg-green-500/30" : ""}
+              title={isPrivacyFilterEnabled ? "Privacy filter enabled - secrets are masked" : "Enable privacy filter to mask secrets"}
+            >
+              {isPrivacyFilterEnabled ? <ShieldCheck className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+            </Button>
+          )}
 
           {/* Theme toggle */}
-          <button
+          <Button
+            variant="secondary"
+            size="icon-sm"
             onClick={toggleTheme}
-            className="p-2 rounded bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
           >
             {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
+          </Button>
           
-          <div className="w-px h-6 bg-[var(--border-color)]" />
-          
-          <button 
-            onClick={handleCopy}
-            disabled={!hasOutput}
-            className="flex items-center gap-2 px-3 py-1.5 rounded bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--text-secondary)] text-sm transition-colors"
-          >
-            {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-            <span>{copied ? "Copied!" : "Copy"}</span>
-          </button>
-          <button 
-            onClick={handleExport}
-            disabled={!hasOutput}
-            className="flex items-center gap-2 px-3 py-1.5 rounded bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export</span>
-          </button>
+          {/* Only show action buttons when project is open */}
+          {hasProject && (
+            <>
+              <div className="w-px h-6 bg-[var(--border-color)]" />
+              
+              <Button 
+                variant="secondary"
+                size="sm"
+                onClick={handleCopy}
+                disabled={!hasOutput}
+              >
+                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                <span>{copied ? "Copied!" : "Copy"}</span>
+              </Button>
+              <Button 
+                variant="default"
+                size="sm"
+                onClick={handleExport}
+                disabled={!hasOutput}
+              >
+                <Download className="w-4 h-4" />
+                <span>Export</span>
+              </Button>
+            </>
+          )}
         </div>
       </header>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-6 relative">
+      <div className="flex-1 overflow-hidden p-6 relative">
         {/* Loading Overlay */}
         {isGenerating && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 dark:bg-black/40 backdrop-blur-sm rounded-lg">
@@ -121,14 +150,44 @@ export function MainContent() {
 
         <div className="h-full">
           {!fileTree ? (
-            // Empty state
+            // Empty state - Welcome screen
             <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
-              <FolderOpen className="w-16 h-16 text-[var(--border-color)] mb-4" />
-              <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">Welcome to Context Catcher</h2>
-              <p className="text-[var(--text-secondary)] max-w-md">
-                Open a folder using the sidebar to scan your project files. 
-                Then select the files you want to include in your context.
+              <div className="w-20 h-20 rounded-2xl bg-[var(--accent-color)]/10 flex items-center justify-center mb-6">
+                <FolderOpen className="w-10 h-10 text-[var(--accent-color)]" />
+              </div>
+              <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">Welcome to Context Catcher</h2>
+              <p className="text-[var(--text-secondary)] max-w-md mb-8">
+                Open a folder to scan your project files and generate AI-friendly context.
               </p>
+              
+              {/* Recent Folders */}
+              {recentFolders.length > 0 && (
+                <div className="w-full max-w-md">
+                  <div className="flex items-center gap-2 mb-3 text-[var(--text-muted)]">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm font-medium">Recent Folders</span>
+                  </div>
+                  <div className="space-y-2">
+                    {recentFolders.map((folder) => (
+                      <button
+                        key={folder.path}
+                        onClick={() => openRecentFolder(folder.path)}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] border border-[var(--border-color)] transition-colors text-left group"
+                      >
+                        <FolderOpen className="w-5 h-5 text-[var(--accent-color)] flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="block text-sm font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent-color)]">
+                            {folder.name}
+                          </span>
+                          <span className="block text-xs text-[var(--text-muted)] truncate">
+                            {folder.path}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : !hasOutput ? (
             // Folder loaded but no selection
@@ -141,14 +200,13 @@ export function MainContent() {
               </p>
             </div>
           ) : (
-            // Show generated output - editable textarea
+            // Show generated output - CodeMirror editor
             <div className="h-full flex flex-col">
               <div className="flex-1 bg-[var(--code-bg)] rounded-lg border border-[var(--border-color)] overflow-hidden">
-                <textarea
+                <CodeMirrorEditor
                   value={generatedOutput}
                   onChange={handleOutputChange}
-                  className="code-output w-full h-full resize-none p-4 text-[var(--text-primary)] bg-transparent border-none outline-none focus:ring-0"
-                  spellCheck={false}
+                  theme={theme}
                   placeholder="Generated context will appear here..."
                 />
               </div>

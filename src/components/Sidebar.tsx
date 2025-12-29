@@ -12,11 +12,10 @@ import {
   MinusSquare,
   Eye,
   PanelLeftClose,
-  PanelLeft,
-  Menu,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAppStore, FileNode } from "../store/appStore";
+import { Badge } from "./ui";
 
 // FileTreeNode component for recursive rendering
 interface FileTreeNodeProps {
@@ -26,7 +25,7 @@ interface FileTreeNodeProps {
 
 function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(depth < 2); // Auto-expand first 2 levels
-  const { selectedPaths, togglePath, openFilePreview } = useAppStore();
+  const { selectedPaths, togglePath, openFilePreview, getFileTokenPercentage } = useAppStore();
 
   const isSelected = selectedPaths.has(node.path);
   
@@ -37,6 +36,9 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
   );
   
   const isPartiallySelected = !isSelected && hasSelectedChildren;
+
+  // Get token percentage for files
+  const tokenPercentage = !node.is_dir && isSelected ? getFileTokenPercentage(node.path) : 0;
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -62,6 +64,13 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
     : isPartiallySelected 
       ? MinusSquare 
       : Square;
+
+  // Determine badge variant based on token percentage
+  const getBadgeVariant = (pct: number) => {
+    if (pct >= 30) return "destructive"; // Heavy file - red
+    if (pct >= 15) return "warning";     // Medium file - yellow
+    return "muted";                       // Light file - muted
+  };
 
   return (
     <div>
@@ -121,6 +130,17 @@ function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
           {node.name}
         </span>
 
+        {/* Token percentage badge for selected files */}
+        {!node.is_dir && isSelected && tokenPercentage > 0 && (
+          <Badge 
+            variant={getBadgeVariant(tokenPercentage)} 
+            className="ml-1 opacity-80"
+            title={`This file contributes ${tokenPercentage}% of total tokens`}
+          >
+            {tokenPercentage}%
+          </Badge>
+        )}
+
         {/* Eye icon for file preview - only for files */}
         {!node.is_dir && (
           <button
@@ -167,40 +187,9 @@ export function Sidebar() {
 
   const selectedCount = selectedPaths.size;
 
-  // Collapsed sidebar - thin rail with expand button
+  // When collapsed, hide sidebar entirely (expand button moved to MainContent header)
   if (sidebarCollapsed) {
-    return (
-      <aside className="w-12 min-w-12 bg-[var(--bg-secondary)] border-r border-[var(--border-color)] flex flex-col h-full">
-        <div className="p-2 flex flex-col items-center gap-2">
-          <button
-            onClick={toggleSidebar}
-            className="p-2 rounded hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            title="Expand sidebar"
-          >
-            <PanelLeft className="w-5 h-5" />
-          </button>
-          <div className="w-full h-px bg-[var(--border-color)]" />
-          <button
-            onClick={handleOpenFolder}
-            disabled={isScanning}
-            className="p-2 rounded bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
-            title="Open folder"
-          >
-            {isScanning ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <FolderOpen className="w-5 h-5" />
-            )}
-          </button>
-        </div>
-        {fileTree && (
-          <div className="flex-1 flex flex-col items-center py-2 text-xs text-[var(--text-muted)]">
-            <FolderTree className="w-4 h-4 text-[var(--accent-color)]" />
-            <span className="mt-1 writing-mode-vertical">{selectedCount}</span>
-          </div>
-        )}
-      </aside>
-    );
+    return null;
   }
 
   return (

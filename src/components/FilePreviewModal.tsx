@@ -3,6 +3,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark, oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useAppStore } from "../store/appStore";
 import { useEffect } from "react";
+import { Button, Badge } from "./ui";
 
 interface FilePreviewModalProps {
   filePath: string;
@@ -87,13 +88,14 @@ export function FilePreviewModal({ filePath, fileName, content, onClose }: FileP
             <span className="text-sm font-semibold text-[var(--text-primary)]">{fileName}</span>
             <span className="text-xs text-[var(--text-muted)] truncate max-w-[500px]">{filePath}</span>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
-            className="p-2 rounded hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             title="Close (Esc)"
           >
             <X className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
 
         {/* Content */}
@@ -122,7 +124,7 @@ export function FilePreviewModal({ filePath, fileName, content, onClose }: FileP
 
         {/* Footer */}
         <div className="px-4 py-2 border-t border-[var(--border-color)] bg-[var(--bg-secondary)] flex items-center justify-between text-xs text-[var(--text-secondary)]">
-          <span>Language: {language}</span>
+          <Badge variant="secondary">{language}</Badge>
           <span>{content.split("\n").length} lines • {content.length.toLocaleString()} characters</span>
         </div>
       </div>

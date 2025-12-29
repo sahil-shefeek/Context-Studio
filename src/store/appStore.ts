@@ -12,6 +12,13 @@ export interface FileNode {
 
 export type Theme = "dark" | "light";
 
+// Recent folder entry
+export interface RecentFolder {
+  path: string;
+  name: string;
+  lastOpened: number;
+}
+
 interface AppState {
   // State
   rootPath: string | null;
@@ -21,8 +28,11 @@ interface AppState {
   error: string | null;
   theme: Theme;
   generatedOutput: string;
+  originalOutput: string; // Store unfiltered output for reverting
   tokenCount: number;
   isGenerating: boolean;
+  recentFolders: RecentFolder[];
+  fileTokenMap: Map<string, number>; // Map of file path to token count
   
   // UI State
   sidebarCollapsed: boolean;
@@ -42,6 +52,9 @@ interface AppState {
   openFilePreview: (path: string, name: string) => Promise<void>;
   closeFilePreview: () => void;
   togglePrivacyFilter: () => void;
+  loadRecentFolders: () => void;
+  openRecentFolder: (path: string) => Promise<void>;
+  getFileTokenPercentage: (path: string) => number;
 }
 
 // Helper to get all paths from a node (including children)
@@ -155,6 +168,38 @@ function getInitialTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+// Load recent folders from localStorage
+function loadRecentFoldersFromStorage(): RecentFolder[] {
+  try {
+    const saved = localStorage.getItem("recentFolders");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return [];
+}
+
+// Save recent folders to localStorage
+function saveRecentFolders(folders: RecentFolder[]) {
+  localStorage.setItem("recentFolders", JSON.stringify(folders.slice(0, 5)));
+}
+
+// Add folder to recent list
+function addToRecentFolders(path: string, existingFolders: RecentFolder[]): RecentFolder[] {
+  const name = path.split('/').pop() || path;
+  const newEntry: RecentFolder = { path, name, lastOpened: Date.now() };
+  
+  // Remove existing entry with same path
+  const filtered = existingFolders.filter(f => f.path !== path);
+  
+  // Add to beginning and limit to 5
+  const updated = [newEntry, ...filtered].slice(0, 5);
+  saveRecentFolders(updated);
+  return updated;
+}
+
 // Debounce timer for generateContext
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -197,8 +242,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   error: null,
   theme: getInitialTheme(),
   generatedOutput: "",
+  originalOutput: "", // Store original unfiltered output
   tokenCount: 0,
   isGenerating: false,
+  recentFolders: loadRecentFoldersFromStorage(),
+  fileTokenMap: new Map(),
   
   // UI State
   sidebarCollapsed: true,
@@ -210,13 +258,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isScanning: true, error: null });
     try {
       const tree = await invoke<FileNode>("get_file_tree", { basePath: path });
+      const { recentFolders } = get();
+      const updatedRecent = addToRecentFolders(path, recentFolders);
+      
       set({
         rootPath: path,
         fileTree: tree,
         selectedPaths: new Set(),
         isScanning: false,
         generatedOutput: "",
+        originalOutput: "",
         tokenCount: 0,
+        recentFolders: updatedRecent,
+        fileTokenMap: new Map(),
+        sidebarCollapsed: false, // Expand sidebar when folder is opened
       });
     } catch (err) {
       set({
@@ -277,7 +332,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   deselectAll: () => {
     // Cancel any pending generation
     if (debounceTimer) clearTimeout(debounceTimer);
-    set({ selectedPaths: new Set(), generatedOutput: "", tokenCount: 0, isGenerating: false });
+    set({ 
+      selectedPaths: new Set(), 
+      generatedOutput: "", 
+      originalOutput: "",
+      tokenCount: 0, 
+      isGenerating: false,
+      fileTokenMap: new Map(),
+    });
   },
 
   clearFileTree: () => {
@@ -289,8 +351,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectedPaths: new Set(),
       error: null,
       generatedOutput: "",
+      originalOutput: "",
       tokenCount: 0,
       isGenerating: false,
+      fileTokenMap: new Map(),
     });
   },
 
@@ -303,10 +367,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   generateContext: async () => {
-    const { fileTree, selectedPaths, rootPath } = get();
+    const { fileTree, selectedPaths, rootPath, isPrivacyFilterEnabled } = get();
     
     if (!fileTree || selectedPaths.size === 0) {
-      set({ generatedOutput: "", tokenCount: 0, isGenerating: false });
+      set({ generatedOutput: "", originalOutput: "", tokenCount: 0, isGenerating: false, fileTokenMap: new Map() });
       return;
     }
 
@@ -317,7 +381,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const selectedFilePaths = allFilePaths.filter(p => selectedPaths.has(p));
 
       if (selectedFilePaths.length === 0) {
-        set({ generatedOutput: "", tokenCount: 0, isGenerating: false });
+        set({ generatedOutput: "", originalOutput: "", tokenCount: 0, isGenerating: false, fileTokenMap: new Map() });
         return;
       }
 
@@ -329,37 +393,61 @@ export const useAppStore = create<AppState>((set, get) => ({
         filePaths: selectedFilePaths,
       });
 
-      // Build the output
+      // Build the output and track per-file tokens
       let output = "# Project Structure\n\n```\n" + treeText + "```\n\n---\n\n# File Contents\n\n";
+      const newFileTokenMap = new Map<string, number>();
 
       for (const filePath of selectedFilePaths) {
         const content = contents[filePath] || "[Error reading file]";
         const relativePath = rootPath ? filePath.replace(rootPath, "").replace(/^\//, "") : filePath;
         const langId = getLanguageId(filePath);
         
-        output += `## File: ${relativePath}\n\n\`\`\`${langId}\n${content}\n\`\`\`\n\n`;
+        const fileSection = `## File: ${relativePath}\n\n\`\`\`${langId}\n${content}\n\`\`\`\n\n`;
+        output += fileSection;
+        
+        // Count tokens for this file
+        const fileTokens = countTokens(fileSection);
+        newFileTokenMap.set(filePath, fileTokens);
       }
 
-      // Count tokens
+      // Count total tokens
       const tokens = countTokens(output);
 
-      set({ generatedOutput: output, tokenCount: tokens, isGenerating: false });
+      // Apply privacy filter if enabled
+      const displayOutput = isPrivacyFilterEnabled ? applyPrivacyFilter(output) : output;
+
+      set({ 
+        generatedOutput: displayOutput, 
+        originalOutput: output, // Always store original
+        tokenCount: tokens, 
+        isGenerating: false,
+        fileTokenMap: newFileTokenMap,
+      });
     } catch (err) {
       console.error("Failed to generate context:", err);
       set({ 
         generatedOutput: `Error generating context: ${err}`, 
+        originalOutput: "",
         tokenCount: 0, 
-        isGenerating: false 
+        isGenerating: false,
+        fileTokenMap: new Map(),
       });
     }
   },
 
   setGeneratedOutput: (output: string) => {
-    const { isPrivacyFilterEnabled } = get();
+    const { isPrivacyFilterEnabled, originalOutput } = get();
+    
+    // When user edits, we update both displayed and original
+    // If privacy filter is on, we apply it to display but keep original
     const finalOutput = isPrivacyFilterEnabled ? applyPrivacyFilter(output) : output;
     
     // Update output immediately for responsive typing
-    set({ generatedOutput: finalOutput });
+    set({ 
+      generatedOutput: finalOutput,
+      // Only update original if filter is off (user is editing raw content)
+      originalOutput: isPrivacyFilterEnabled ? originalOutput : output,
+    });
     
     // Debounce token counting for performance (500ms delay)
     if (tokenCountTimer) clearTimeout(tokenCountTimer);
@@ -390,21 +478,46 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   togglePrivacyFilter: () => {
-    const { isPrivacyFilterEnabled, generatedOutput } = get();
+    const { isPrivacyFilterEnabled, originalOutput } = get();
     const newEnabled = !isPrivacyFilterEnabled;
     
-    if (newEnabled && generatedOutput) {
-      // Apply filter to existing output
-      const filteredOutput = applyPrivacyFilter(generatedOutput);
+    if (newEnabled && originalOutput) {
+      // Apply filter: show masked version
+      const filteredOutput = applyPrivacyFilter(originalOutput);
       const tokens = countTokens(filteredOutput);
       set({ 
         isPrivacyFilterEnabled: newEnabled, 
         generatedOutput: filteredOutput,
         tokenCount: tokens 
       });
+    } else if (!newEnabled && originalOutput) {
+      // Revert: show original version
+      const tokens = countTokens(originalOutput);
+      set({ 
+        isPrivacyFilterEnabled: newEnabled, 
+        generatedOutput: originalOutput,
+        tokenCount: tokens 
+      });
     } else {
-      // Just toggle the state (can't unfilter - would need to regenerate)
+      // No output, just toggle the state
       set({ isPrivacyFilterEnabled: newEnabled });
     }
+  },
+
+  loadRecentFolders: () => {
+    const folders = loadRecentFoldersFromStorage();
+    set({ recentFolders: folders });
+  },
+
+  openRecentFolder: async (path: string) => {
+    const { scanDirectory } = get();
+    await scanDirectory(path);
+  },
+
+  getFileTokenPercentage: (path: string) => {
+    const { fileTokenMap, tokenCount } = get();
+    if (tokenCount === 0) return 0;
+    const fileTokens = fileTokenMap.get(path) || 0;
+    return Math.round((fileTokens / tokenCount) * 100);
   },
 }));

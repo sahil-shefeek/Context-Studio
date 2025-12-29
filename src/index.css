@@ -79,3 +79,28 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* CodeMirror wrapper styling */
+.codemirror-wrapper {
+  height: 100%;
+  width: 100%;
+}
+
+.codemirror-wrapper .cm-editor {
+  height: 100%;
+  outline: none;
+}
+
+.codemirror-wrapper .cm-scroller {
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Monaco, Consolas, monospace;
+}
+
+/* Placeholder styling for empty editor */
+.cm-content[data-placeholder]::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  color: var(--text-muted);
+  font-style: italic;
+  pointer-events: none;
+}
+

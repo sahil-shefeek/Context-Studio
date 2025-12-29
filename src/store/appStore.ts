@@ -96,6 +96,7 @@ interface AppState {
   rootPath: string | null;
   fileTree: FileNode | null;
   selectedPaths: Set<string>;
+  orderedSelection: string[]; // Ordered list of selected file paths for context generation
   isScanning: boolean;
   error: string | null;
   theme: Theme;
@@ -168,6 +169,10 @@ interface AppState {
   setOutputFormat: (format: OutputFormat) => void;
   getContextPercentage: () => number;
   getContextStatus: () => 'green' | 'yellow' | 'red';
+  
+  // Ordered selection actions
+  reorderSelection: (orderedPaths: string[]) => void;
+  getOrderedSelectedFiles: () => string[];
   
   // New Settings Actions
   setRestoreSessionOnStartup: (enabled: boolean) => void;
@@ -527,6 +532,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   rootPath: null,
   fileTree: null,
   selectedPaths: new Set(),
+  orderedSelection: [], // Ordered list of selected file paths
   isScanning: false,
   error: null,
   theme: initialTheme,
@@ -585,6 +591,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         rootPath: path,
         fileTree: tree,
         selectedPaths: new Set(),
+        orderedSelection: [], // Reset ordered selection
         isScanning: false,
         generatedOutput: "",
         originalOutput: "",
@@ -605,11 +612,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   togglePath: (path: string, node: FileNode) => {
-    const { selectedPaths, generateContext, rootPath } = get();
+    const { selectedPaths, orderedSelection, generateContext, rootPath } = get();
     const newSelected = new Set(selectedPaths);
+    let newOrdered = [...orderedSelection];
     
     // Get all paths for this node (if directory, includes all children)
     const pathsToToggle = getAllPaths(node);
+    // Get only file paths (not directories) for ordering
+    const filePathsToToggle = getAllFilePaths(node);
     
     // Check if this path is currently selected
     const isSelected = newSelected.has(path);
@@ -619,15 +629,23 @@ export const useAppStore = create<AppState>((set, get) => ({
       for (const p of pathsToToggle) {
         newSelected.delete(p);
       }
+      // Remove files from ordered selection
+      newOrdered = newOrdered.filter(p => !filePathsToToggle.includes(p));
     } else {
       // Add all paths
       for (const p of pathsToToggle) {
         newSelected.add(p);
       }
+      // Add files to ordered selection (at the end)
+      for (const fp of filePathsToToggle) {
+        if (!newOrdered.includes(fp)) {
+          newOrdered.push(fp);
+        }
+      }
     }
     
     // Update selection immediately for snappy UI
-    set({ selectedPaths: newSelected, lastClickedPath: path });
+    set({ selectedPaths: newSelected, orderedSelection: newOrdered, lastClickedPath: path });
     
     // Save session state
     if (rootPath) {
@@ -643,7 +661,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   togglePathRange: (path: string, node: FileNode, shiftKey: boolean) => {
-    const { selectedPaths, generateContext, rootPath, fileTree, lastClickedPath } = get();
+    const { selectedPaths, orderedSelection, generateContext, rootPath, fileTree, lastClickedPath } = get();
     
     // If shift is not pressed or no last clicked path, just do normal toggle
     if (!shiftKey || !lastClickedPath || !fileTree) {
@@ -665,8 +683,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const startIndex = Math.min(lastIndex, currentIndex);
     const endIndex = Math.max(lastIndex, currentIndex);
     const pathsInRange = allPaths.slice(startIndex, endIndex + 1);
+    // Get file paths in range for ordering
+    const filePathsInRange = pathsInRange.filter(p => !p.endsWith('/'));
     
     const newSelected = new Set(selectedPaths);
+    let newOrdered = [...orderedSelection];
     
     // Determine action based on the clicked item's current state
     const isSelected = newSelected.has(path);
@@ -679,8 +700,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
     
+    // Update ordered selection for file paths
+    if (isSelected) {
+      // Remove deselected file paths
+      newOrdered = newOrdered.filter(p => !filePathsInRange.includes(p));
+    } else {
+      // Add newly selected file paths
+      for (const fp of filePathsInRange) {
+        if (!newOrdered.includes(fp)) {
+          newOrdered.push(fp);
+        }
+      }
+    }
+    
     // Update selection immediately for snappy UI
-    set({ selectedPaths: newSelected, lastClickedPath: path });
+    set({ selectedPaths: newSelected, orderedSelection: newOrdered, lastClickedPath: path });
     
     // Save session state
     if (rootPath) {
@@ -699,7 +733,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { fileTree, generateContext, rootPath } = get();
     if (fileTree) {
       const allPaths = getAllPaths(fileTree);
-      set({ selectedPaths: new Set(allPaths) });
+      const allFilePaths = getAllFilePaths(fileTree);
+      set({ selectedPaths: new Set(allPaths), orderedSelection: allFilePaths });
       
       // Save session state
       if (rootPath) {
@@ -720,7 +755,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Cancel any pending generation
     if (debounceTimer) clearTimeout(debounceTimer);
     set({ 
-      selectedPaths: new Set(), 
+      selectedPaths: new Set(),
+      orderedSelection: [], 
       generatedOutput: "", 
       originalOutput: "",
       tokenCount: 0, 
@@ -741,6 +777,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       rootPath: null,
       fileTree: null,
       selectedPaths: new Set(),
+      orderedSelection: [],
       error: null,
       generatedOutput: "",
       originalOutput: "",
@@ -765,7 +802,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   generateContext: async () => {
-    const { fileTree, selectedPaths, rootPath, isPrivacyFilterEnabled, maxFileSizeKb, outputFormat } = get();
+    const { fileTree, selectedPaths, orderedSelection, rootPath, isPrivacyFilterEnabled, maxFileSizeKb, outputFormat } = get();
     
     if (!fileTree || selectedPaths.size === 0) {
       set({ generatedOutput: "", originalOutput: "", tokenCount: 0, isGenerating: false, fileTokenMap: new Map() });
@@ -774,9 +811,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // isGenerating is already set by the debounced caller
     try {
-      // Get only file paths (not directories)
-      const allFilePaths = getAllFilePaths(fileTree);
-      const selectedFilePaths = allFilePaths.filter(p => selectedPaths.has(p));
+      // Use orderedSelection if available, otherwise fall back to tree order
+      let selectedFilePaths: string[];
+      if (orderedSelection.length > 0) {
+        // Use the user's custom ordering, filtered to only include currently selected files
+        selectedFilePaths = orderedSelection.filter(p => selectedPaths.has(p));
+      } else {
+        // Fall back to tree order for backward compatibility
+        const allFilePaths = getAllFilePaths(fileTree);
+        selectedFilePaths = allFilePaths.filter(p => selectedPaths.has(p));
+      }
 
       if (selectedFilePaths.length === 0) {
         set({ generatedOutput: "", originalOutput: "", tokenCount: 0, isGenerating: false, fileTokenMap: new Map() });
@@ -1241,5 +1285,32 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!isDefaultTemplate) {
       setSelectedTemplate("none");
     }
+  },
+
+  // Ordered selection actions
+  reorderSelection: (orderedPaths: string[]) => {
+    const { generateContext } = get();
+    set({ orderedSelection: orderedPaths });
+    
+    // Regenerate context with new order
+    if (debounceTimer) clearTimeout(debounceTimer);
+    set({ isGenerating: true });
+    debounceTimer = setTimeout(() => {
+      generateContext();
+    }, 400);
+  },
+
+  getOrderedSelectedFiles: () => {
+    const { orderedSelection, selectedPaths, fileTree } = get();
+    
+    // If we have an ordered selection, use it (filtered to current selection)
+    if (orderedSelection.length > 0) {
+      return orderedSelection.filter(p => selectedPaths.has(p));
+    }
+    
+    // Fall back to tree order
+    if (!fileTree) return [];
+    const allFilePaths = getAllFilePaths(fileTree);
+    return allFilePaths.filter(p => selectedPaths.has(p));
   },
 }));

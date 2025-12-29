@@ -1,8 +1,10 @@
-import { FileText, Copy, Download, FolderOpen, Loader2, Check, Shield, ShieldCheck, PanelLeft, Clock, X, ChevronDown, AlertTriangle, Settings } from "lucide-react";
+import { FileText, Copy, Download, FolderOpen, Loader2, Check, Shield, ShieldCheck, PanelLeft, Clock, X, ChevronDown, AlertTriangle, Settings, ListOrdered, BookOpen } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { useState, useCallback, useMemo } from "react";
 import { Button, Select, Badge } from "./ui";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
+import { OrganizeContext } from "./OrganizeContext";
+import { DocumentationModal } from "./DocumentationModal";
 import { open } from "@tauri-apps/plugin-dialog";
 
 export function MainContent() {
@@ -29,10 +31,13 @@ export function MainContent() {
     targetContextWindow,
     openSettings,
     scanDirectory,
+    getOrderedSelectedFiles,
   } = useAppStore();
   const [copied, setCopied] = useState(false);
   const [isTemplateExpanded, setIsTemplateExpanded] = useState(true);
   const [showPrivacyWarning, setShowPrivacyWarning] = useState(false);
+  const [showOrganizeView, setShowOrganizeView] = useState(false);
+  const [showDocumentation, setShowDocumentation] = useState(false);
 
   // Detect platform for keyboard shortcut display
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -40,6 +45,7 @@ export function MainContent() {
 
   const hasOutput = generatedOutput.length > 0;
   const hasProject = !!fileTree;
+  const hasSelectedFiles = getOrderedSelectedFiles().length > 0;
 
   // Handle opening folder
   const handleOpenFolder = async () => {
@@ -212,6 +218,19 @@ export function MainContent() {
             />
           )}
 
+          {/* Organize Context toggle - only show when files are selected */}
+          {hasProject && hasSelectedFiles && (
+            <Button
+              variant={showOrganizeView ? "default" : "secondary"}
+              size="icon-sm"
+              onClick={() => setShowOrganizeView(!showOrganizeView)}
+              className={showOrganizeView ? "bg-[var(--accent-color)]/20 text-[var(--accent-color)] hover:bg-[var(--accent-color)]/30" : ""}
+              title={showOrganizeView ? "Show output preview" : "Organize context order (Pro)"}
+            >
+              <ListOrdered className="w-4 h-4" />
+            </Button>
+          )}
+
           {/* Privacy Filter toggle - only show when project is open */}
           {hasProject && (
             <Button
@@ -280,7 +299,7 @@ export function MainContent() {
               {/* Quick Start Section */}
               <div className="w-full max-w-2xl mb-8">
                 <h3 className="text-sm font-medium text-(--text-muted) uppercase tracking-wider mb-4">Quick Start</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <button
                     onClick={handleOpenFolder}
                     className="flex items-center gap-4 p-4 rounded-xl bg-(--bg-secondary) hover:bg-(--bg-tertiary) border border-(--border-color) hover:border-(--accent-color) transition-all text-left group"
@@ -298,8 +317,24 @@ export function MainContent() {
                     </div>
                   </button>
                   <button
+                    onClick={() => setShowDocumentation(true)}
+                    className="flex items-center gap-4 p-4 rounded-xl bg-(--bg-secondary) hover:bg-(--bg-tertiary) border border-(--border-color) hover:border-green-500 transition-all text-left group"
+                  >
+                    <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                      <BookOpen className="w-6 h-6 text-green-500" />
+                    </div>
+                    <div className="flex-1">
+                      <span className="block text-sm font-semibold text-(--text-primary) group-hover:text-green-500 transition-colors">
+                        Documentation
+                      </span>
+                      <span className="text-xs text-(--text-muted)">
+                        Learn best practices
+                      </span>
+                    </div>
+                  </button>
+                  <button
                     onClick={openSettings}
-                    className="flex items-center gap-4 p-4 rounded-xl bg-(--bg-secondary) hover:bg-(--bg-tertiary) border border-(--border-color) hover:border-(--accent-color) transition-all text-left group"
+                    className="flex items-center gap-4 p-4 rounded-xl bg-(--bg-secondary) hover:bg-(--bg-tertiary) border border-(--border-color) hover:border-purple-500 transition-all text-left group"
                   >
                     <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
                       <Settings className="w-6 h-6 text-purple-500" />
@@ -374,6 +409,11 @@ export function MainContent() {
                 <kbd className="px-1.5 py-0.5 rounded bg-(--bg-tertiary) mr-1">Shift</kbd>
                 + Click for range selection
               </p>
+            </div>
+          ) : showOrganizeView ? (
+            // Show Organize Context view for drag-and-drop reordering
+            <div className="h-full bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-color)] overflow-hidden animate-in fade-in duration-300">
+              <OrganizeContext />
             </div>
           ) : (
             // Show generated output - CodeMirror editor with optional template accordion
@@ -457,6 +497,12 @@ export function MainContent() {
           </div>
         )}
       </footer>
+
+      {/* Documentation Modal */}
+      <DocumentationModal 
+        isOpen={showDocumentation} 
+        onClose={() => setShowDocumentation(false)} 
+      />
     </main>
   );
 }

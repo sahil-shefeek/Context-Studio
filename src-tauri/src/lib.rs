@@ -35,19 +35,46 @@ const SMART_IGNORE: &[&str] = &[
     ".env.local",
 ];
 
-fn should_ignore(name: &str) -> bool {
-    SMART_IGNORE.iter().any(|&ignored| {
+// Max file size for reading (1MB default)
+const MAX_FILE_SIZE: u64 = 1024 * 1024; // 1MB
+
+fn should_ignore(name: &str, custom_patterns: &[String]) -> bool {
+    // Check built-in patterns
+    let matches_builtin = SMART_IGNORE.iter().any(|&ignored| {
         if ignored.starts_with("*.") {
-            // Handle wildcard patterns like "*.pyc"
             let ext = &ignored[1..];
             name.ends_with(ext)
         } else {
             name == ignored
         }
+    });
+    
+    if matches_builtin {
+        return true;
+    }
+    
+    // Check custom patterns
+    custom_patterns.iter().any(|pattern| {
+        let pattern = pattern.trim();
+        if pattern.is_empty() {
+            return false;
+        }
+        if pattern.starts_with("*.") {
+            // Wildcard extension pattern like "*.log"
+            let ext = &pattern[1..];
+            name.ends_with(ext)
+        } else if pattern.contains('*') {
+            // Simple glob pattern - convert to contains check
+            let parts: Vec<&str> = pattern.split('*').filter(|s| !s.is_empty()).collect();
+            parts.iter().all(|part| name.contains(part))
+        } else {
+            // Exact match
+            name == pattern
+        }
     })
 }
 
-fn scan_directory(path: &Path) -> Option<Vec<FileNode>> {
+fn scan_directory(path: &Path, custom_patterns: &[String]) -> Option<Vec<FileNode>> {
     let entries = match fs::read_dir(path) {
         Ok(entries) => entries,
         Err(_) => return None, // Handle permission errors gracefully
@@ -63,7 +90,7 @@ fn scan_directory(path: &Path) -> Option<Vec<FileNode>> {
         };
 
         // Skip ignored files/directories
-        if should_ignore(&name) {
+        if should_ignore(&name, custom_patterns) {
             continue;
         }
 
@@ -71,7 +98,7 @@ fn scan_directory(path: &Path) -> Option<Vec<FileNode>> {
         let path_str = entry_path.to_string_lossy().to_string();
 
         let children = if is_dir {
-            scan_directory(&entry_path)
+            scan_directory(&entry_path, custom_patterns)
         } else {
             None
         };
@@ -97,7 +124,7 @@ fn scan_directory(path: &Path) -> Option<Vec<FileNode>> {
 }
 
 #[tauri::command]
-fn get_file_tree(base_path: String) -> Result<FileNode, String> {
+fn get_file_tree(base_path: String, custom_ignore_patterns: Option<Vec<String>>) -> Result<FileNode, String> {
     let path = Path::new(&base_path);
     
     if !path.exists() {
@@ -113,7 +140,8 @@ fn get_file_tree(base_path: String) -> Result<FileNode, String> {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| base_path.clone());
 
-    let children = scan_directory(path);
+    let patterns = custom_ignore_patterns.unwrap_or_default();
+    let children = scan_directory(path, &patterns);
 
     Ok(FileNode {
         name,
@@ -140,8 +168,19 @@ fn is_binary_file(path: &Path) -> bool {
     }
 }
 
+/// Format file size in human-readable format
+fn format_file_size(bytes: u64) -> String {
+    if bytes >= 1024 * 1024 {
+        format!("{:.1}MB", bytes as f64 / (1024.0 * 1024.0))
+    } else if bytes >= 1024 {
+        format!("{:.1}KB", bytes as f64 / 1024.0)
+    } else {
+        format!("{}B", bytes)
+    }
+}
+
 /// Read contents of multiple files, returning a map of path -> content
-/// Binary files are returned with a placeholder
+/// Binary files and files exceeding max size are returned with a placeholder
 #[tauri::command]
 fn read_files_contents(file_paths: Vec<String>) -> Result<HashMap<String, String>, String> {
     let mut contents: HashMap<String, String> = HashMap::new();
@@ -156,6 +195,16 @@ fn read_files_contents(file_paths: Vec<String>) -> Result<HashMap<String, String
 
         if !path.is_file() {
             continue; // Skip directories
+        }
+
+        // Check file size before reading
+        if let Ok(metadata) = fs::metadata(path) {
+            let file_size = metadata.len();
+            if file_size > MAX_FILE_SIZE {
+                let size_str = format_file_size(file_size);
+                contents.insert(file_path, format!("[File too large to include - {}]", size_str));
+                continue;
+            }
         }
 
         if is_binary_file(path) {

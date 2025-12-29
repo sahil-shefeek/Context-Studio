@@ -1,6 +1,6 @@
 import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon, Shield, ShieldCheck, PanelLeft, Clock, X, ChevronDown } from "lucide-react";
 import { useAppStore } from "../store/appStore";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Button, Select, Badge } from "./ui";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
 
@@ -24,12 +24,27 @@ export function MainContent() {
     selectedTemplateId,
     setSelectedTemplate,
     getOutputWithTemplate,
+    getContextPercentage,
+    getContextStatus,
+    targetContextWindow,
   } = useAppStore();
   const [copied, setCopied] = useState(false);
   const [isTemplateExpanded, setIsTemplateExpanded] = useState(true);
 
   const hasOutput = generatedOutput.length > 0;
   const hasProject = !!fileTree;
+
+  // Limit recent folders to 5 unique paths
+  const displayRecentFolders = useMemo(() => {
+    const seen = new Set<string>();
+    return recentFolders
+      .filter(folder => {
+        if (seen.has(folder.path)) return false;
+        seen.add(folder.path);
+        return true;
+      })
+      .slice(0, 5);
+  }, [recentFolders]);
 
   // Get selected template
   const selectedTemplate = promptTemplates.find(t => t.id === selectedTemplateId);
@@ -40,6 +55,10 @@ export function MainContent() {
     value: t.id,
     label: t.name,
   }));
+
+  // Context percentage and status
+  const contextPercentage = getContextPercentage();
+  const contextStatus = getContextStatus();
 
   // Get simple status message
   const getStatusMessage = () => {
@@ -196,14 +215,14 @@ export function MainContent() {
               </p>
               
               {/* Recent Folders */}
-              {recentFolders.length > 0 && (
+              {displayRecentFolders.length > 0 && (
                 <div className="w-full max-w-md">
                   <div className="flex items-center gap-2 mb-3 text-[var(--text-muted)]">
                     <Clock className="w-4 h-4" />
                     <span className="text-sm font-medium">Recent Folders</span>
                   </div>
                   <div className="space-y-2">
-                    {recentFolders.map((folder) => (
+                    {displayRecentFolders.map((folder) => (
                       <div
                         key={folder.path}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] border border-[var(--border-color)] transition-colors text-left group"
@@ -296,9 +315,37 @@ export function MainContent() {
       <footer className="px-6 py-2 border-t border-[var(--border-color)] flex items-center justify-between text-xs">
         <span className="text-[var(--text-muted)]">{getStatusMessage()}</span>
         {hasProject && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Badge variant="secondary">{generatedOutput.length.toLocaleString()} chars</Badge>
-            <Badge variant="default">{formatTokens(tokenCount)} tokens</Badge>
+            
+            {/* Token count with progress indicator */}
+            <div className="flex items-center gap-2">
+              <div className="relative w-24 h-2 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
+                <div 
+                  className={`absolute inset-y-0 left-0 rounded-full transition-all duration-300 ${
+                    contextStatus === 'red' 
+                      ? 'bg-red-500' 
+                      : contextStatus === 'yellow' 
+                        ? 'bg-yellow-500' 
+                        : 'bg-green-500'
+                  }`}
+                  style={{ width: `${Math.min(100, contextPercentage)}%` }}
+                />
+              </div>
+              <Badge 
+                variant="default"
+                className={
+                  contextStatus === 'red' 
+                    ? 'bg-red-500/20 text-red-500 border-red-500/30' 
+                    : contextStatus === 'yellow' 
+                      ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30' 
+                      : ''
+                }
+                title={`${contextPercentage}% of ${targetContextWindow.toLocaleString()} token limit`}
+              >
+                {formatTokens(tokenCount)} tokens ({contextPercentage}%)
+              </Badge>
+            </div>
           </div>
         )}
       </footer>

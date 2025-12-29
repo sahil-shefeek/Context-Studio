@@ -84,6 +84,10 @@ interface AppState {
   previewFile: { path: string; name: string; content: string } | null;
   isPrivacyFilterEnabled: boolean;
   isSettingsOpen: boolean;
+  
+  // Context Window Settings
+  targetContextWindow: number;
+  customIgnorePatterns: string;
 
   // Actions
   scanDirectory: (path: string) => Promise<void>;
@@ -110,6 +114,10 @@ interface AppState {
   closeSettings: () => void;
   clearAllStorage: () => void;
   restoreSession: () => Promise<void>;
+  setTargetContextWindow: (tokens: number) => void;
+  setCustomIgnorePatterns: (patterns: string) => void;
+  getContextPercentage: () => number;
+  getContextStatus: () => 'green' | 'yellow' | 'red';
 }
 
 // Helper to get all paths from a node (including children)
@@ -251,6 +259,27 @@ function saveSelectedTemplate(templateId: string) {
   localStorage.setItem("selectedTemplate", templateId);
 }
 
+// Load target context window from localStorage
+function loadTargetContextWindow(): number {
+  const saved = localStorage.getItem("targetContextWindow");
+  return saved ? parseInt(saved, 10) : 128000;
+}
+
+// Save target context window to localStorage
+function saveTargetContextWindow(tokens: number) {
+  localStorage.setItem("targetContextWindow", tokens.toString());
+}
+
+// Load custom ignore patterns from localStorage
+function loadCustomIgnorePatterns(): string {
+  return localStorage.getItem("customIgnorePatterns") || "";
+}
+
+// Save custom ignore patterns to localStorage
+function saveCustomIgnorePatterns(patterns: string) {
+  localStorage.setItem("customIgnorePatterns", patterns);
+}
+
 // Session state interface
 interface SessionState {
   rootPath: string;
@@ -351,12 +380,26 @@ export const useAppStore = create<AppState>((set, get) => ({
   previewFile: null,
   isPrivacyFilterEnabled: false,
   isSettingsOpen: false,
+  
+  // Context Window Settings
+  targetContextWindow: loadTargetContextWindow(),
+  customIgnorePatterns: loadCustomIgnorePatterns(),
 
   // Actions
   scanDirectory: async (path: string) => {
     set({ isScanning: true, error: null });
     try {
-      const tree = await invoke<FileNode>("get_file_tree", { basePath: path });
+      const { customIgnorePatterns } = get();
+      // Parse custom patterns (one per line)
+      const patterns = customIgnorePatterns
+        .split('\n')
+        .map(p => p.trim())
+        .filter(p => p.length > 0 && !p.startsWith('#'));
+      
+      const tree = await invoke<FileNode>("get_file_tree", { 
+        basePath: path,
+        customIgnorePatterns: patterns.length > 0 ? patterns : null
+      });
       const { recentFolders } = get();
       const updatedRecent = addToRecentFolders(path, recentFolders);
       
@@ -706,7 +749,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     const session = loadSessionState();
     if (session && session.rootPath) {
       try {
-        const tree = await invoke<FileNode>("get_file_tree", { basePath: session.rootPath });
+        const { customIgnorePatterns } = get();
+        // Parse custom patterns (one per line)
+        const patterns = customIgnorePatterns
+          .split('\n')
+          .map(p => p.trim())
+          .filter(p => p.length > 0 && !p.startsWith('#'));
+        
+        const tree = await invoke<FileNode>("get_file_tree", { 
+          basePath: session.rootPath,
+          customIgnorePatterns: patterns.length > 0 ? patterns : null
+        });
         
         // Restore selected paths that still exist in the tree
         const allPaths = getAllPaths(tree);
@@ -735,5 +788,30 @@ export const useAppStore = create<AppState>((set, get) => ({
         clearSessionState();
       }
     }
+  },
+
+  setTargetContextWindow: (tokens: number) => {
+    saveTargetContextWindow(tokens);
+    set({ targetContextWindow: tokens });
+  },
+
+  setCustomIgnorePatterns: (patterns: string) => {
+    saveCustomIgnorePatterns(patterns);
+    set({ customIgnorePatterns: patterns });
+  },
+
+  getContextPercentage: () => {
+    const { tokenCount, targetContextWindow } = get();
+    if (targetContextWindow === 0) return 0;
+    return Math.min(100, Math.round((tokenCount / targetContextWindow) * 100));
+  },
+
+  getContextStatus: () => {
+    const { tokenCount, targetContextWindow } = get();
+    if (targetContextWindow === 0) return 'green';
+    const percentage = (tokenCount / targetContextWindow) * 100;
+    if (percentage > 85) return 'red';
+    if (percentage > 60) return 'yellow';
+    return 'green';
   },
 }));

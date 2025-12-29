@@ -1,9 +1,9 @@
-import { FileText, Copy, Download, FolderOpen, Loader2, Check } from "lucide-react";
+import { FileText, Copy, Download, FolderOpen, Loader2, Check, Sun, Moon } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { useState } from "react";
 
 export function MainContent() {
-  const { fileTree, generatedOutput, tokenCount, isGenerating } = useAppStore();
+  const { fileTree, generatedOutput, tokenCount, isGenerating, theme, toggleTheme } = useAppStore();
   const [copied, setCopied] = useState(false);
 
   const hasOutput = generatedOutput.length > 0;
@@ -49,6 +49,17 @@ export function MainContent() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          >
+            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          
+          <div className="w-px h-6 bg-[var(--border-color)]" />
+          
           <button 
             onClick={handleCopy}
             disabled={!hasOutput}

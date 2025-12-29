@@ -145,6 +145,9 @@ function getInitialTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+// Debounce timer for generateContext
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const useAppStore = create<AppState>((set, get) => ({
   // Initial state
   rootPath: null,
@@ -200,10 +203,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
     
+    // Update selection immediately for snappy UI
     set({ selectedPaths: newSelected });
     
-    // Trigger context regeneration
-    generateContext();
+    // Debounce the heavy lifting (file reading, token counting)
+    if (debounceTimer) clearTimeout(debounceTimer);
+    set({ isGenerating: true }); // Show loading state immediately
+    debounceTimer = setTimeout(() => {
+      generateContext();
+    }, 400);
   },
 
   selectAll: () => {
@@ -211,15 +219,25 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (fileTree) {
       const allPaths = getAllPaths(fileTree);
       set({ selectedPaths: new Set(allPaths) });
-      generateContext();
+      
+      // Debounce the heavy lifting
+      if (debounceTimer) clearTimeout(debounceTimer);
+      set({ isGenerating: true });
+      debounceTimer = setTimeout(() => {
+        generateContext();
+      }, 400);
     }
   },
 
   deselectAll: () => {
-    set({ selectedPaths: new Set(), generatedOutput: "", tokenCount: 0 });
+    // Cancel any pending generation
+    if (debounceTimer) clearTimeout(debounceTimer);
+    set({ selectedPaths: new Set(), generatedOutput: "", tokenCount: 0, isGenerating: false });
   },
 
   clearFileTree: () => {
+    // Cancel any pending generation
+    if (debounceTimer) clearTimeout(debounceTimer);
     set({
       rootPath: null,
       fileTree: null,
@@ -227,6 +245,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       error: null,
       generatedOutput: "",
       tokenCount: 0,
+      isGenerating: false,
     });
   },
 
@@ -239,18 +258,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   generateContext: async () => {
-    const { fileTree, selectedPaths, rootPath, isGenerating } = get();
+    const { fileTree, selectedPaths, rootPath } = get();
     
     if (!fileTree || selectedPaths.size === 0) {
-      set({ generatedOutput: "", tokenCount: 0 });
+      set({ generatedOutput: "", tokenCount: 0, isGenerating: false });
       return;
     }
 
-    // Prevent concurrent generation
-    if (isGenerating) return;
-    
-    set({ isGenerating: true });
-
+    // isGenerating is already set by the debounced caller
     try {
       // Get only file paths (not directories)
       const allFilePaths = getAllFilePaths(fileTree);

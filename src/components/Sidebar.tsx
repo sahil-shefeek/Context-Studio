@@ -207,7 +207,7 @@ export function Sidebar() {
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-[var(--border-color)] text-xs text-[var(--text-secondary)]">
+      <div className="px-3 py-2 border-t border-[var(--border-color)] text-xs text-[var(--text-secondary)]">
         {rootPath ? (
           <span className="truncate block" title={rootPath}>
             {rootPath}

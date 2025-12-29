@@ -55,16 +55,16 @@ export function TitleBar() {
   };
 
   return (
-    <div className="h-10 min-h-10 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] flex items-center select-none">
+    <div className="h-10 min-h-10 bg-(--bg-secondary) border-b border-(--border-color) flex items-center select-none">
       {/* Left: Draggable region with app branding */}
       <div 
         className="flex-1 flex items-center gap-2 px-4 h-full"
         data-tauri-drag-region
       >
-        <div className="w-5 h-5 rounded bg-[var(--accent-color)] flex items-center justify-center pointer-events-none">
+        <div className="w-5 h-5 rounded bg-(--accent-color) flex items-center justify-center pointer-events-none">
           <span className="text-white text-xs font-bold">CC</span>
         </div>
-        <span className="text-sm font-semibold text-[var(--text-primary)] pointer-events-none">
+        <span className="text-sm font-semibold text-(--text-primary) pointer-events-none">
           Context Catcher
         </span>
       </div>
@@ -74,7 +74,7 @@ export function TitleBar() {
         {/* Settings button */}
         <button
           onClick={openSettings}
-          className="h-full px-3 flex items-center justify-center hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          className="h-full px-3 flex items-center justify-center hover:bg-(--bg-tertiary) transition-colors text-(--text-secondary) hover:text-(--text-primary)"
           title="Settings"
         >
           <Settings className="w-4 h-4" />
@@ -83,24 +83,24 @@ export function TitleBar() {
         {/* Window controls - hidden on macOS */}
         {!isMacOS && (
           <>
-            <div className="w-px h-4 bg-[var(--border-color)]" />
+            <div className="w-px h-4 bg-(--border-color)" />
             <button
               onClick={handleMinimize}
-              className="h-full px-4 flex items-center justify-center hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              className="h-full px-4 flex items-center justify-center hover:bg-(--bg-tertiary) transition-colors text-(--text-secondary) hover:text-(--text-primary)"
               title="Minimize"
             >
               <Minus className="w-4 h-4" />
             </button>
             <button
               onClick={handleMaximize}
-              className="h-full px-4 flex items-center justify-center hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              className="h-full px-4 flex items-center justify-center hover:bg-(--bg-tertiary) transition-colors text-(--text-secondary) hover:text-(--text-primary)"
               title={isMaximized ? "Restore" : "Maximize"}
             >
               {isMaximized ? <Square className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={handleClose}
-              className="h-full px-4 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors text-[var(--text-secondary)]"
+              className="h-full px-4 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors text-(--text-secondary)"
               title="Close"
             >
               <X className="w-4 h-4" />

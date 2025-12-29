@@ -1,7 +1,26 @@
-# Tauri + React + Typescript
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+# ContextCatcher
 
-## Recommended IDE Setup
+**Tech Stack:**
+*   **Backend:** **Tauri 2.0** (latest stable) for native performance and file system access via Rust.
+*   **Frontend:** **React** + **Vite** + **TypeScript**.
+*   **Styling:** **Tailwind CSS**.
+*   **Package Manager:** **pnpm**.
+*   **Key Libraries:** `tiktoken` (for token estimation), `zustand` (state management), and `lucide-react` (icons).
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+---
+
+**Full Feature List:**
+1.  **Project Root Selector:** Native folder picker to set the working directory.
+2.  **Checkbox File Tree:** Interactive tree view to selectively include/exclude files and folders.
+3.  **Smart Ignore Engine:** 
+    *   Hardcoded defaults (`node_modules`, `.git`, etc.).
+    *   Automatic parsing of `.gitignore`, `.dockerignore`, and `.aiignore`.
+4.  **Markdown Formatter:** 
+    *   Output starts with the directory tree.
+    *   Each file is labeled with its path and wrapped in triple backticks with language auto-detection.
+5.  **Advanced: Token Counter:** A live badge showing the total token count of the current selection (using GPT-4 encoding standard).
+6.  **Advanced: Privacy Filter:** Toggleable regex-based masking for secrets (API Keys, SSH keys, `.env` values).
+7.  **Advanced: Prompt Templates:** A library of "System Instruction" headers (e.g., "Review for bugs", "Refactor for performance") to prepend to the output.
+8.  **Output:** One-click "Copy to Clipboard" and "Save as .md".
+

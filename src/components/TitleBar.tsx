@@ -62,10 +62,10 @@ export function TitleBar() {
         data-tauri-drag-region
       >
         <div className="w-5 h-5 rounded bg-(--accent-color) flex items-center justify-center pointer-events-none">
-          <span className="text-white text-xs font-bold">CC</span>
+          <span className="text-white text-xs font-bold">CS</span>
         </div>
         <span className="text-sm font-semibold text-(--text-primary) pointer-events-none">
-          Context Catcher
+          Context Studio
         </span>
       </div>
 

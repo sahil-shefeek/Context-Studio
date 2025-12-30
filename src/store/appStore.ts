@@ -2,6 +2,10 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { get_encoding } from "@dqbd/tiktoken";
 
+// =============================================================================
+// TYPES & INTERFACES
+// =============================================================================
+
 // Types matching the Rust FileNode structure
 export interface FileNode {
   name: string;
@@ -38,7 +42,10 @@ export interface PromptTemplate {
   isDefault?: boolean;
 }
 
-// Default prompt templates
+// =============================================================================
+// DEFAULT TEMPLATES
+// =============================================================================
+
 const DEFAULT_TEMPLATES: PromptTemplate[] = [
   {
     id: "none",
@@ -78,6 +85,10 @@ const DEFAULT_TEMPLATES: PromptTemplate[] = [
   },
 ];
 
+// =============================================================================
+// FRAMEWORK PRESETS
+// =============================================================================
+
 // Framework presets configuration
 export const FRAMEWORK_PRESETS = [
   { id: "react-vite", name: "React / Vite" },
@@ -91,8 +102,12 @@ export const FRAMEWORK_PRESETS = [
   { id: "cpp", name: "C / C++" },
 ] as const;
 
+// =============================================================================
+// STORE STATE INTERFACE
+// =============================================================================
+
 interface AppState {
-  // State
+  // --- Filesystem State ---
   rootPath: string | null;
   fileTree: FileNode | null;
   selectedPaths: Set<string>;
@@ -108,35 +123,35 @@ interface AppState {
   recentFolders: RecentFolder[];
   fileTokenMap: Map<string, number>; // Map of file path to token count
   
-  // Prompt Templates
+  // --- Prompt Templates ---
   promptTemplates: PromptTemplate[];
   selectedTemplateId: string;
   
-  // UI State
+  // --- UI State ---
   sidebarCollapsed: boolean;
   previewFile: { path: string; name: string; content: string } | null;
   isPrivacyFilterEnabled: boolean;
   isSettingsOpen: boolean;
   
-  // Context Window Settings
+  // --- Context Window Settings ---
   targetContextWindow: number;
   customIgnorePatterns: string;
   outputFormat: OutputFormat;
   
-  // New Settings
+  // --- General Settings ---
   restoreSessionOnStartup: boolean;
   maxFileSizeKb: number;
   
-  // Ignore Settings
+  // --- Ignore Settings ---
   respectGitignore: boolean;
   respectDockerignore: boolean;
   respectAiignore: boolean;
   frameworkPresets: string[];
   
-  // Range selection tracking
+  // --- Selection State ---
   lastClickedPath: string | null;
 
-  // Actions
+  // --- Filesystem Actions ---
   scanDirectory: (path: string) => Promise<void>;
   togglePath: (path: string, node: FileNode) => void;
   togglePathRange: (path: string, node: FileNode, shiftKey: boolean) => void;
@@ -145,38 +160,56 @@ interface AppState {
   clearFileTree: () => void;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  
+  // --- Context Generation Actions ---
   generateContext: () => Promise<void>;
   setGeneratedOutput: (output: string) => void;
+  
+  // --- UI Actions ---
   toggleSidebar: () => void;
   openFilePreview: (path: string, name: string) => Promise<void>;
   closeFilePreview: () => void;
   togglePrivacyFilter: () => void;
   setPrivacyFilterEnabled: (enabled: boolean) => void;
+  
+  // --- Recent Folders Actions ---
   loadRecentFolders: () => void;
   openRecentFolder: (path: string) => Promise<void>;
   removeRecentFolder: (path: string) => void;
   clearAllRecentFolders: () => void;
+  
+  // --- Token Tracking Actions ---
   getFileTokenPercentage: (path: string) => number;
   getFolderTokenPercentage: (node: FileNode) => number;
+  
+  // --- Template Actions ---
   setSelectedTemplate: (templateId: string) => void;
   getOutputWithTemplate: () => string;
+  
+  // --- Settings Actions ---
   openSettings: () => void;
   closeSettings: () => void;
   clearAllStorage: () => void;
+  
+  // --- Session Actions ---
   restoreSession: () => Promise<void>;
+  
+  // --- Context Settings Actions ---
   setTargetContextWindow: (tokens: number) => void;
   setCustomIgnorePatterns: (patterns: string) => void;
   setOutputFormat: (format: OutputFormat) => void;
   getContextPercentage: () => number;
   getContextStatus: () => 'green' | 'yellow' | 'red';
   
-  // Ordered selection actions
+  // --- Ordered Selection Actions ---
   reorderSelection: (orderedPaths: string[]) => void;
   getOrderedSelectedFiles: () => string[];
   
-  // New Settings Actions
+  // --- General Settings Actions ---
   setRestoreSessionOnStartup: (enabled: boolean) => void;
   setMaxFileSizeKb: (size: number) => void;
+  
+  // --- Ignore Settings Actions ---
   setRespectGitignore: (enabled: boolean) => void;
   setRespectDockerignore: (enabled: boolean) => void;
   setRespectAiignore: (enabled: boolean) => void;
@@ -184,12 +217,16 @@ interface AppState {
   toggleFrameworkPreset: (preset: string) => void;
   getIgnoreSettings: () => IgnoreSettings;
   
-  // Prompt Template CRUD
+  // --- Template CRUD Actions ---
   addTemplate: (name: string, text: string) => void;
   updateTemplate: (id: string, name: string, text: string) => void;
   deleteTemplate: (id: string) => void;
   resetTemplatesToDefault: () => void;
 }
+
+// =============================================================================
+// HELPER FUNCTIONS - Tree Traversal
+// =============================================================================
 
 // Helper to get all paths from a node (including children)
 function getAllPaths(node: FileNode): string[] {
@@ -237,6 +274,10 @@ function generateTreeText(node: FileNode, prefix: string = "", isLast: boolean =
   return result;
 }
 
+// =============================================================================
+// HELPER FUNCTIONS - Code Processing
+// =============================================================================
+
 // Get language identifier from file extension for syntax highlighting
 function getLanguageId(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase() || "";
@@ -281,6 +322,10 @@ function getLanguageId(filePath: string): string {
   return languageMap[ext] || ext;
 }
 
+// =============================================================================
+// HELPER FUNCTIONS - Token Counting
+// =============================================================================
+
 // Count tokens using tiktoken
 function countTokens(text: string): number {
   try {
@@ -302,6 +347,10 @@ function resolveTheme(theme: Theme): ResolvedTheme {
   }
   return theme;
 }
+
+// =============================================================================
+// HELPER FUNCTIONS - LocalStorage Persistence
+// =============================================================================
 
 // Get initial theme from localStorage (now supports 'system')
 function getInitialTheme(): Theme {
@@ -492,11 +541,19 @@ function addToRecentFolders(path: string, existingFolders: RecentFolder[]): Rece
   return updated;
 }
 
+// =============================================================================
+// DEBOUNCE TIMERS
+// =============================================================================
+
 // Debounce timer for generateContext
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Debounce timer for token counting (separate from generation)
 let tokenCountTimer: ReturnType<typeof setTimeout> | null = null;
+
+// =============================================================================
+// PRIVACY FILTER
+// =============================================================================
 
 // Privacy filter regex patterns
 const PRIVACY_PATTERNS = [
@@ -527,8 +584,14 @@ function applyPrivacyFilter(text: string): string {
 
 const initialTheme = getInitialTheme();
 
+// =============================================================================
+// ZUSTAND STORE
+// =============================================================================
+
 export const useAppStore = create<AppState>((set, get) => ({
-  // Initial state
+  // ---------------------------------------------------------------------------
+  // Initial State - Filesystem
+  // ---------------------------------------------------------------------------
   rootPath: null,
   fileTree: null,
   selectedPaths: new Set(),
@@ -544,35 +607,49 @@ export const useAppStore = create<AppState>((set, get) => ({
   recentFolders: loadRecentFoldersFromStorage(),
   fileTokenMap: new Map(),
   
-  // Prompt Templates
+  // ---------------------------------------------------------------------------
+  // Initial State - Prompt Templates
+  // ---------------------------------------------------------------------------
   promptTemplates: getAllTemplates(),
   selectedTemplateId: loadSelectedTemplateFromStorage(),
   
-  // UI State
+  // ---------------------------------------------------------------------------
+  // Initial State - UI
+  // ---------------------------------------------------------------------------
   sidebarCollapsed: true,
   previewFile: null,
   isPrivacyFilterEnabled: true, // Default to true for safety
   isSettingsOpen: false,
   
-  // Context Window Settings
+  // ---------------------------------------------------------------------------
+  // Initial State - Context Window Settings
+  // ---------------------------------------------------------------------------
   targetContextWindow: loadTargetContextWindow(),
   customIgnorePatterns: loadCustomIgnorePatterns(),
   outputFormat: loadOutputFormat(),
   
-  // New Settings
+  // ---------------------------------------------------------------------------
+  // Initial State - General Settings
+  // ---------------------------------------------------------------------------
   restoreSessionOnStartup: loadRestoreSessionOnStartup(),
   maxFileSizeKb: loadMaxFileSizeKb(),
   
-  // Ignore Settings
+  // ---------------------------------------------------------------------------
+  // Initial State - Ignore Settings
+  // ---------------------------------------------------------------------------
   respectGitignore: loadRespectGitignore(),
   respectDockerignore: loadRespectDockerignore(),
   respectAiignore: loadRespectAiignore(),
   frameworkPresets: loadFrameworkPresets(),
   
-  // Range selection tracking
+  // ---------------------------------------------------------------------------
+  // Initial State - Selection
+  // ---------------------------------------------------------------------------
   lastClickedPath: null,
 
-  // Actions
+  // ---------------------------------------------------------------------------
+  // Actions - Directory Scanning
+  // ---------------------------------------------------------------------------
   scanDirectory: async (path: string) => {
     set({ isScanning: true, error: null });
     try {
@@ -611,6 +688,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - File Selection
+  // ---------------------------------------------------------------------------
   togglePath: (path: string, node: FileNode) => {
     const { selectedPaths, orderedSelection, generateContext, rootPath } = get();
     const newSelected = new Set(selectedPaths);
@@ -787,6 +867,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - Theme
+  // ---------------------------------------------------------------------------
   setTheme: (newTheme: Theme) => {
     localStorage.setItem("theme", newTheme);
     const resolved = resolveTheme(newTheme);
@@ -801,6 +884,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     setTheme(nextTheme);
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - Context Generation
+  // ---------------------------------------------------------------------------
   generateContext: async () => {
     const { fileTree, selectedPaths, orderedSelection, rootPath, isPrivacyFilterEnabled, maxFileSizeKb, outputFormat } = get();
     
@@ -922,6 +1008,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     }, 500);
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - UI State
+  // ---------------------------------------------------------------------------
   toggleSidebar: () => {
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
   },
@@ -975,6 +1064,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - Recent Folders
+  // ---------------------------------------------------------------------------
   loadRecentFolders: () => {
     const folders = loadRecentFoldersFromStorage();
     set({ recentFolders: folders });
@@ -985,6 +1077,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     await scanDirectory(path);
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - Token Tracking
+  // ---------------------------------------------------------------------------
   getFileTokenPercentage: (path: string) => {
     const { fileTokenMap, tokenCount } = get();
     if (tokenCount === 0) return 0;
@@ -1009,6 +1104,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     return Math.round((folderTokens / tokenCount) * 100);
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - Recent Folders Management
+  // ---------------------------------------------------------------------------
   removeRecentFolder: (path: string) => {
     const { recentFolders } = get();
     const updated = recentFolders.filter(f => f.path !== path);
@@ -1021,6 +1119,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ recentFolders: [] });
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - Prompt Templates
+  // ---------------------------------------------------------------------------
   setSelectedTemplate: (templateId: string) => {
     saveSelectedTemplate(templateId);
     set({ selectedTemplateId: templateId });
@@ -1035,6 +1136,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     return generatedOutput;
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - Settings
+  // ---------------------------------------------------------------------------
   openSettings: () => {
     set({ isSettingsOpen: true });
   },
@@ -1055,6 +1159,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     clearSessionState();
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - Session Restore
+  // ---------------------------------------------------------------------------
   restoreSession: async () => {
     const session = loadSessionState();
     if (session && session.rootPath) {
@@ -1097,6 +1204,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - Context Window Settings
+  // ---------------------------------------------------------------------------
   setTargetContextWindow: (tokens: number) => {
     saveTargetContextWindow(tokens);
     set({ targetContextWindow: tokens });
@@ -1136,7 +1246,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     return 'green';
   },
   
-  // New Settings Actions
+  // ---------------------------------------------------------------------------
+  // Actions - General Settings
+  // ---------------------------------------------------------------------------
   setRestoreSessionOnStartup: (enabled: boolean) => {
     saveRestoreSessionOnStartup(enabled);
     set({ restoreSessionOnStartup: enabled });
@@ -1147,6 +1259,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ maxFileSizeKb: size });
   },
 
+  // ---------------------------------------------------------------------------
+  // Actions - Ignore Settings
+  // ---------------------------------------------------------------------------
   setRespectGitignore: (enabled: boolean) => {
     saveRespectGitignore(enabled);
     set({ respectGitignore: enabled });
@@ -1193,7 +1308,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
   },
   
-  // Prompt Template CRUD
+  // ---------------------------------------------------------------------------
+  // Actions - Template CRUD
+  // ---------------------------------------------------------------------------
   addTemplate: (name: string, text: string) => {
     const id = `custom-${Date.now()}`;
     const newTemplate: PromptTemplate = { id, name, text, isDefault: false };
@@ -1287,7 +1404,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  // Ordered selection actions
+  // ---------------------------------------------------------------------------
+  // Actions - Ordered Selection (Drag & Drop Reordering)
+  // ---------------------------------------------------------------------------
   reorderSelection: (orderedPaths: string[]) => {
     const { generateContext } = get();
     set({ orderedSelection: orderedPaths });

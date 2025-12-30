@@ -23,7 +23,7 @@ export function DocumentationModal({ isOpen, onClose }: DocumentationModalProps)
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-[var(--accent-color)]" />
-            How to Use Context Catcher
+            How to Use Context Studio
           </DialogTitle>
         </DialogHeader>
         
@@ -31,7 +31,7 @@ export function DocumentationModal({ isOpen, onClose }: DocumentationModalProps)
           {/* Introduction */}
           <section>
             <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-              Context Catcher helps you create optimized context windows for AI assistants. 
+              Context Studio helps you create optimized context windows for AI assistants. 
               By understanding how LLMs process information, you can dramatically improve 
               the quality of AI responses.
             </p>

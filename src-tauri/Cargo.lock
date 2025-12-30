@@ -498,8 +498,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "context-catcher"
-version = "0.1.0"
+name = "context-studio"
+version = "1.0.0"
 dependencies = [
  "ignore",
  "serde",

@@ -1,16 +1,9 @@
 import { useState, useMemo } from "react";
 import {
   FolderTree,
-  ChevronRight,
-  ChevronDown,
-  File,
+  Loader2,
   Folder,
   FolderOpen,
-  Loader2,
-  CheckSquare,
-  Square,
-  MinusSquare,
-  Eye,
   PanelLeftClose,
   X,
   RefreshCw,
@@ -18,7 +11,9 @@ import {
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAppStore, FileNode } from "../store/appStore";
-import { Badge, Button } from "./ui";
+import { Button } from "./ui";
+import { FileTreeNode } from "./FileTreeNode";
+import { SearchInput } from "./SearchInput";
 
 // Helper to filter tree based on search query
 function filterTree(node: FileNode, query: string): FileNode | null {
@@ -46,168 +41,6 @@ function filterTree(node: FileNode, query: string): FileNode | null {
   
   // For files, only include if name matches
   return nameMatches ? node : null;
-}
-
-// FileTreeNode component for recursive rendering
-interface FileTreeNodeProps {
-  node: FileNode;
-  depth?: number;
-}
-
-function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
-  const [isExpanded, setIsExpanded] = useState(depth < 2); // Auto-expand first 2 levels
-  const { selectedPaths, togglePathRange, openFilePreview, getFileTokenPercentage, getFolderTokenPercentage } = useAppStore();
-
-  const isSelected = selectedPaths.has(node.path);
-  
-  // Check if any children are selected (for partial selection indicator)
-  const hasSelectedChildren = node.children?.some(
-    (child) => selectedPaths.has(child.path) || 
-    (child.children?.some(c => selectedPaths.has(c.path)))
-  );
-  
-  const isPartiallySelected = !isSelected && hasSelectedChildren;
-
-  // Get token percentage for files or folders
-  const tokenPercentage = node.is_dir 
-    ? (isSelected || isPartiallySelected ? getFolderTokenPercentage(node) : 0)
-    : (isSelected ? getFileTokenPercentage(node.path) : 0);
-
-  const handleToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Support Shift+Click for range selection
-    togglePathRange(node.path, node, e.shiftKey);
-  };
-
-  const handleExpand = () => {
-    if (node.is_dir) {
-      setIsExpanded(!isExpanded);
-    }
-  };
-
-  const handlePreview = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!node.is_dir) {
-      openFilePreview(node.path, node.name);
-    }
-  };
-
-  // Get checkbox icon based on state
-  const CheckboxIcon = isSelected 
-    ? CheckSquare 
-    : isPartiallySelected 
-      ? MinusSquare 
-      : Square;
-
-  // Determine badge variant based on token percentage
-  const getBadgeVariant = (pct: number) => {
-    if (pct >= 30) return "destructive"; // Heavy file - red
-    if (pct >= 15) return "warning";     // Medium file - yellow
-    return "muted";                       // Light file - muted
-  };
-
-  return (
-    <div>
-      <div
-        className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[var(--bg-tertiary)] cursor-pointer text-[var(--text-secondary)] text-sm group"
-        style={{ paddingLeft: `${depth * 12 + 8}px` }}
-      >
-        {/* Checkbox */}
-        <button
-          onClick={handleToggle}
-          className="flex-shrink-0 hover:text-[var(--accent-color)] transition-colors"
-        >
-          <CheckboxIcon
-            className={`w-4 h-4 ${
-              isSelected
-                ? "text-[var(--accent-color)]"
-                : isPartiallySelected
-                ? "text-[var(--accent-color)] opacity-60"
-                : "text-[var(--text-muted)]"
-            }`}
-          />
-        </button>
-
-        {/* Expand/collapse for directories */}
-        {node.is_dir ? (
-          <button
-            onClick={handleExpand}
-            className="flex-shrink-0 hover:text-[var(--text-primary)] transition-colors"
-          >
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4" />
-            ) : (
-              <ChevronRight className="w-4 h-4" />
-            )}
-          </button>
-        ) : (
-          <span className="w-4" /> // Spacer for files
-        )}
-
-        {/* Icon */}
-        {node.is_dir ? (
-          isExpanded ? (
-            <FolderOpen className="w-4 h-4 text-[var(--accent-color)] flex-shrink-0" />
-          ) : (
-            <Folder className="w-4 h-4 text-[var(--accent-color)] flex-shrink-0" />
-          )
-        ) : (
-          <File className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0" />
-        )}
-
-        {/* Name */}
-        <span
-          className="truncate flex-1"
-          onClick={handleExpand}
-          title={node.path}
-        >
-          {node.name}
-        </span>
-
-        {/* Token percentage badge for selected files */}
-        {!node.is_dir && isSelected && tokenPercentage > 0 && (
-          <Badge 
-            variant={getBadgeVariant(tokenPercentage)} 
-            className="ml-1 opacity-80"
-            title={`This file contributes ${tokenPercentage}% of total tokens`}
-          >
-            {tokenPercentage}%
-          </Badge>
-        )}
-
-        {/* Token percentage badge for folders with selected children */}
-        {node.is_dir && (isSelected || isPartiallySelected) && tokenPercentage > 0 && (
-          <Badge 
-            variant={getBadgeVariant(tokenPercentage)} 
-            className="ml-1 opacity-80"
-            title={`This folder contributes ${tokenPercentage}% of total tokens`}
-          >
-            {tokenPercentage}%
-          </Badge>
-        )}
-
-        {/* Eye icon for file preview - only for files */}
-        {!node.is_dir && (
-          <button
-            onClick={handlePreview}
-            className="flex-shrink-0 opacity-0 group-hover:opacity-100 hover:text-[var(--accent-color)] transition-all ml-1"
-            title="Preview file"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-
-      {/* Children */}
-      {node.is_dir && isExpanded && node.children && (
-        <div>
-          {node.children.map((child) => (
-            <FileTreeNode key={child.path} node={child} depth={depth + 1} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export function Sidebar() {
@@ -252,12 +85,12 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-72 min-w-72 bg-[var(--bg-secondary)] border-r border-[var(--border-color)] flex flex-col h-full">
+    <aside className="w-72 min-w-72 bg-(--bg-secondary) border-r border-(--border-color) flex flex-col h-full">
       {/* Header */}
-      <div className="p-3 border-b border-[var(--border-color)]">
+      <div className="p-3 border-b border-(--border-color)">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 text-[var(--text-primary)]">
-            <FolderTree className="w-5 h-5 text-[var(--accent-color)]" />
+          <div className="flex items-center gap-2 text-(--text-primary)">
+            <FolderTree className="w-5 h-5 text-(--accent-color)" />
             <span className="font-semibold text-sm">File Tree</span>
           </div>
           <Button
@@ -294,9 +127,9 @@ export function Sidebar() {
         ) : (
           // Folder is open - show project name with Close and Change buttons
           <div className="space-y-2">
-            <div className="flex items-center gap-2 p-2 rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)]">
-              <FolderOpen className="w-4 h-4 text-[var(--accent-color)] flex-shrink-0" />
-              <span className="text-sm font-medium text-[var(--text-primary)] truncate flex-1" title={rootPath || ""}>
+            <div className="flex items-center gap-2 p-2 rounded bg-(--bg-tertiary) border border-(--border-color)">
+              <FolderOpen className="w-4 h-4 text-(--accent-color) shrink-0" />
+              <span className="text-sm font-medium text-(--text-primary) truncate flex-1" title={rootPath || ""}>
                 {projectName}
               </span>
               <Button
@@ -304,7 +137,7 @@ export function Sidebar() {
                 size="icon-sm"
                 onClick={handleCloseFolder}
                 title="Close folder"
-                className="text-[var(--text-muted)] hover:text-red-500"
+                className="text-(--text-muted) hover:text-red-500"
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -334,32 +167,19 @@ export function Sidebar() {
 
       {/* Search Input - only show when folder is open */}
       {fileTree && (
-        <div className="px-3 py-2 border-b border-[var(--border-color)]">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
-            <input
-              type="text"
-              placeholder="Search files..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-8 py-1.5 text-sm rounded bg-[var(--bg-tertiary)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)]"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+        <div className="px-3 py-2 border-b border-(--border-color)">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search files..."
+          />
         </div>
       )}
 
       {/* Selection info */}
       {fileTree && selectedCount > 0 && (
-        <div className="px-3 py-2 border-b border-[var(--border-color)]">
-          <span className="text-xs text-[var(--text-secondary)]">
+        <div className="px-3 py-2 border-b border-(--border-color)">
+          <span className="text-xs text-(--text-secondary)">
             {selectedCount} file{selectedCount !== 1 ? 's' : ''} selected
           </span>
         </div>
@@ -375,9 +195,9 @@ export function Sidebar() {
 
         {!fileTree && !isScanning && !error && (
           <div className="flex flex-col items-center justify-center h-full text-center p-4">
-            <Folder className="w-12 h-12 text-[var(--border-color)] mb-3" />
-            <p className="text-[var(--text-secondary)] text-sm">No folder selected</p>
-            <p className="text-[var(--text-muted)] text-xs mt-1">
+            <Folder className="w-12 h-12 text-(--border-color) mb-3" />
+            <p className="text-(--text-secondary) text-sm">No folder selected</p>
+            <p className="text-(--text-muted) text-xs mt-1">
               Click "Open Folder" to get started
             </p>
           </div>
@@ -388,14 +208,14 @@ export function Sidebar() {
         {/* No search results */}
         {fileTree && searchQuery && !filteredTree && (
           <div className="flex flex-col items-center justify-center h-32 text-center p-4">
-            <Search className="w-8 h-8 text-[var(--text-muted)] mb-2" />
-            <p className="text-[var(--text-secondary)] text-sm">No files match "{searchQuery}"</p>
+            <Search className="w-8 h-8 text-(--text-muted) mb-2" />
+            <p className="text-(--text-secondary) text-sm">No files match "{searchQuery}"</p>
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-2 border-t border-[var(--border-color)] text-xs text-[var(--text-secondary)]">
+      <div className="px-3 py-2 border-t border-(--border-color) text-xs text-(--text-secondary)">
         {rootPath ? (
           <span className="truncate block" title={rootPath}>
             {rootPath}

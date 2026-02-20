@@ -24,3 +24,4 @@ export {
 export { Input } from "./input";
 export { Textarea } from "./textarea";
 export { Separator } from "./separator";
+export { Toaster } from "./sonner";

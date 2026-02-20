@@ -133,6 +133,7 @@ interface AppState {
   isPrivacyFilterEnabled: boolean;
   isSettingsOpen: boolean;
   isExporting: boolean;
+  isRefreshing: boolean;
   
   // --- Context Window Settings ---
   targetContextWindow: number;
@@ -624,6 +625,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isPrivacyFilterEnabled: true, // Default to true for safety
   isSettingsOpen: false,
   isExporting: false,
+  isRefreshing: false,
   
   // ---------------------------------------------------------------------------
   // Initial State - Context Window Settings
@@ -1073,15 +1075,53 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   refreshDirectory: async () => {
-    const { rootPath, scanDirectory, generateContext, selectedPaths } = get();
+    const { rootPath, getIgnoreSettings, selectedPaths, orderedSelection, generateContext } = get();
     if (!rootPath) return;
     
-    // Rescan the directory with current root path
-    await scanDirectory(rootPath);
+    // Save current selections before refresh
+    const savedSelectedPaths = new Set(selectedPaths);
+    const savedOrderedSelection = [...orderedSelection];
     
-    // If there were selected files, regenerate context
-    if (selectedPaths.size > 0) {
-      await generateContext();
+    set({ isRefreshing: true, isScanning: true, error: null });
+    
+    try {
+      const ignoreSettings = getIgnoreSettings();
+      
+      const tree = await invoke<FileNode>("get_file_tree", { 
+        basePath: rootPath,
+        customIgnorePatterns: null,
+        ignoreSettings,
+      });
+      
+      // Get all valid paths from the new tree
+      const validPaths = new Set(getAllPaths(tree));
+      
+      // Filter selections to only include paths that still exist
+      const filteredSelectedPaths = new Set(
+        [...savedSelectedPaths].filter(p => validPaths.has(p))
+      );
+      const filteredOrderedSelection = savedOrderedSelection.filter(p => validPaths.has(p));
+      
+      set({
+        fileTree: tree,
+        selectedPaths: filteredSelectedPaths,
+        orderedSelection: filteredOrderedSelection,
+        isScanning: false,
+      });
+      
+      // Regenerate context if there are still selected files
+      if (filteredSelectedPaths.size > 0) {
+        await generateContext();
+      }
+      
+      set({ isRefreshing: false });
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : String(err),
+        isScanning: false,
+        isRefreshing: false,
+      });
+      throw err; // Re-throw so caller can catch it
     }
   },
 

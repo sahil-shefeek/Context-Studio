@@ -9,12 +9,15 @@ import { EditorView } from "./EditorView";
 import { ContextFooter } from "./ContextFooter";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { toast } from "sonner";
 
 export function MainContent() {
   const { 
     fileTree, 
     generatedOutput, 
     isGenerating, 
+    isRefreshing,
     isPrivacyFilterEnabled,
     setPrivacyFilterEnabled,
     sidebarCollapsed,
@@ -86,9 +89,23 @@ export function MainContent() {
       
       if (filePath) {
         await writeTextFile(filePath, outputWithTemplate);
+        toast.success("Context exported successfully", {
+          description: filePath,
+          action: {
+            label: "Open File",
+            onClick: () => openPath(filePath),
+          },
+          cancel: {
+            label: "Show in Folder",
+            onClick: () => revealItemInDir(filePath),
+          },
+        });
       }
     } catch (err) {
       console.error("Failed to export:", err);
+      toast.error("Failed to export context", {
+        description: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setExporting(false);
     }
@@ -202,7 +219,11 @@ export function MainContent() {
                 onClick={handleExport}
                 disabled={!hasOutput || isExporting}
               >
-                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
                 <span>{isExporting ? "Exporting..." : "Export"}</span>
               </Button>
             </>
@@ -212,11 +233,13 @@ export function MainContent() {
 
       {/* Content Area */}
       <div className="flex-1 overflow-hidden p-6 relative">
-        {isGenerating && (
+        {(isGenerating || isRefreshing) && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/20 dark:bg-black/40 backdrop-blur-sm rounded-lg">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-(--accent-color)" />
-              <span className="text-sm font-medium text-(--text-primary)">Generating context...</span>
+              <span className="text-sm font-medium text-(--text-primary)">
+                {isRefreshing ? "Refreshing context..." : "Generating context..."}
+              </span>
             </div>
           </div>
         )}

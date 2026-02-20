@@ -14,6 +14,7 @@ import { useAppStore, FileNode } from "../store/appStore";
 import { Button } from "./ui";
 import { FileTreeNode } from "./FileTreeNode";
 import { SearchInput } from "./SearchInput";
+import { toast } from "sonner";
 
 // Helper to filter tree based on search query
 function filterTree(node: FileNode, query: string): FileNode | null {
@@ -44,7 +45,7 @@ function filterTree(node: FileNode, query: string): FileNode | null {
 }
 
 export function Sidebar() {
-  const { fileTree, rootPath, isScanning, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar, clearFileTree, refreshDirectory } =
+  const { fileTree, rootPath, isScanning, isGenerating, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar, clearFileTree, refreshDirectory } =
     useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -74,6 +75,16 @@ export function Sidebar() {
   const handleCloseFolder = () => {
     clearFileTree();
     setSearchQuery("");
+  };
+
+  const handleRefresh = async () => {
+    try {
+      await refreshDirectory();
+    } catch (err) {
+      toast.error("Failed to refresh", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
   };
 
   const selectedCount = selectedPaths.size;
@@ -148,7 +159,7 @@ export function Sidebar() {
                 size="sm"
                 className="flex-1"
                 onClick={handleOpenFolder}
-                disabled={isScanning}
+                disabled={isScanning || isGenerating}
               >
                 {isScanning ? (
                   <>
@@ -165,11 +176,11 @@ export function Sidebar() {
               <Button
                 variant="outline"
                 size="icon-sm"
-                onClick={() => refreshDirectory()}
-                disabled={isScanning}
+                onClick={handleRefresh}
+                disabled={isScanning || isGenerating}
                 title="Refresh file tree"
               >
-                <RefreshCw className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${isScanning || isGenerating ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>

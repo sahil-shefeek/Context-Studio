@@ -2,6 +2,7 @@ import { useEffect, useCallback } from "react";
 import { Sidebar, MainContent, TitleBar, FilePreviewModal, SettingsModal } from "./components";
 import { useAppStore } from "./store/appStore";
 import { open } from "@tauri-apps/plugin-dialog";
+import { Toaster } from "./components/ui";
 
 function App() {
   const { 
@@ -115,6 +116,9 @@ function App() {
 
       {/* Settings Modal */}
       <SettingsModal />
+      
+      {/* Toast Notifications */}
+      <Toaster position="bottom-right" richColors closeButton />
     </div>
   );
 }

@@ -45,7 +45,7 @@ function filterTree(node: FileNode, query: string): FileNode | null {
 }
 
 export function Sidebar() {
-  const { fileTree, rootPath, isScanning, isGenerating, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar, clearFileTree, refreshDirectory } =
+  const { fileTree, rootPath, isScanning, isGenerating, isRefreshing, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar, clearFileTree, refreshDirectory } =
     useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -147,6 +147,7 @@ export function Sidebar() {
                 variant="ghost"
                 size="icon-sm"
                 onClick={handleCloseFolder}
+                disabled={isScanning || isGenerating || isRefreshing}
                 title="Close folder"
                 className="text-(--text-muted) hover:text-red-500"
               >
@@ -159,7 +160,7 @@ export function Sidebar() {
                 size="sm"
                 className="flex-1"
                 onClick={handleOpenFolder}
-                disabled={isScanning || isGenerating}
+                disabled={isScanning || isGenerating || isRefreshing}
               >
                 {isScanning ? (
                   <>
@@ -177,10 +178,10 @@ export function Sidebar() {
                 variant="outline"
                 size="icon-sm"
                 onClick={handleRefresh}
-                disabled={isScanning || isGenerating}
+                disabled={isScanning || isGenerating || isRefreshing}
                 title="Refresh file tree"
               >
-                <RefreshCw className={`w-4 h-4 ${isScanning || isGenerating ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${isScanning || isGenerating || isRefreshing ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>

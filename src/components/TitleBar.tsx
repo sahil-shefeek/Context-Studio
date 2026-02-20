@@ -1,13 +1,32 @@
 import { Minus, Square, X, Maximize2, Settings } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platform } from "@tauri-apps/plugin-os";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "../store/appStore";
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMacOS, setIsMacOS] = useState(false);
   const { openSettings } = useAppStore();
+
+  // Manual drag handler for better cross-platform support (especially Linux)
+  const handleMouseDown = useCallback(async (e: React.MouseEvent) => {
+    // Only handle left mouse button and ignore if clicking on interactive elements
+    if (e.button !== 0) return;
+    
+    const target = e.target as HTMLElement;
+    // Skip if clicking on buttons or other interactive elements
+    if (target.closest('button')) return;
+    
+    const appWindow = getCurrentWindow();
+    if (e.detail === 2) {
+      // Double click to toggle maximize
+      await appWindow.toggleMaximize();
+    } else {
+      // Single click to start dragging
+      await appWindow.startDragging();
+    }
+  }, []);
 
   useEffect(() => {
     // Check platform to hide window controls on macOS
@@ -58,8 +77,9 @@ export function TitleBar() {
     <div className="h-10 min-h-10 bg-(--bg-secondary) border-b border-(--border-color) flex items-center select-none">
       {/* Left: Draggable region with app branding */}
       <div 
-        className="flex-1 flex items-center gap-2 px-4 h-full"
+        className="flex-1 flex items-center gap-2 px-4 h-full cursor-default"
         data-tauri-drag-region
+        onMouseDown={handleMouseDown}
       >
         <div className="w-5 h-5 rounded bg-(--accent-color) flex items-center justify-center pointer-events-none">
           <span className="text-white text-xs font-bold">CS</span>

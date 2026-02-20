@@ -4,6 +4,12 @@
 /* Enable dark mode with class strategy */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Enable Tauri window drag region */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
 /* Light theme (default) - GitHub-style clean look */
 :root {
   --bg-primary: #ffffff;

@@ -7,6 +7,8 @@ import { DocumentationModal } from "./DocumentationModal";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { EditorView } from "./EditorView";
 import { ContextFooter } from "./ContextFooter";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 
 export function MainContent() {
   const { 
@@ -22,6 +24,8 @@ export function MainContent() {
     setSelectedTemplate,
     getOutputWithTemplate,
     getOrderedSelectedFiles,
+    isExporting,
+    setExporting,
   } = useAppStore();
   
   const [copied, setCopied] = useState(false);
@@ -69,18 +73,25 @@ export function MainContent() {
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const outputWithTemplate = getOutputWithTemplate();
     if (!outputWithTemplate) return;
-    const blob = new Blob([outputWithTemplate], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "context.md";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    
+    setExporting(true);
+    try {
+      const filePath = await save({
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+        defaultPath: "context.md",
+      });
+      
+      if (filePath) {
+        await writeTextFile(filePath, outputWithTemplate);
+      }
+    } catch (err) {
+      console.error("Failed to export:", err);
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Header title based on project state
@@ -189,10 +200,10 @@ export function MainContent() {
                 variant="default"
                 size="sm"
                 onClick={handleExport}
-                disabled={!hasOutput}
+                disabled={!hasOutput || isExporting}
               >
-                <Download className="w-4 h-4" />
-                <span>Export</span>
+                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                <span>{isExporting ? "Exporting..." : "Export"}</span>
               </Button>
             </>
           )}

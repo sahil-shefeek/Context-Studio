@@ -44,7 +44,7 @@ function filterTree(node: FileNode, query: string): FileNode | null {
 }
 
 export function Sidebar() {
-  const { fileTree, rootPath, isScanning, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar, clearFileTree } =
+  const { fileTree, rootPath, isScanning, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar, clearFileTree, refreshDirectory } =
     useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -142,25 +142,36 @@ export function Sidebar() {
                 <X className="w-4 h-4" />
               </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={handleOpenFolder}
-              disabled={isScanning}
-            >
-              {isScanning ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Scanning...</span>
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4" />
-                  <span>Change Folder</span>
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={handleOpenFolder}
+                disabled={isScanning}
+              >
+                {isScanning ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Scanning...</span>
+                  </>
+                ) : (
+                  <>
+                    <FolderOpen className="w-4 h-4" />
+                    <span>Change</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={() => refreshDirectory()}
+                disabled={isScanning}
+                title="Refresh file tree"
+              >
+                <RefreshCw className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
           </div>
         )}
       </div>

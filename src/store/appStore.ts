@@ -132,6 +132,7 @@ interface AppState {
   previewFile: { path: string; name: string; content: string } | null;
   isPrivacyFilterEnabled: boolean;
   isSettingsOpen: boolean;
+  isExporting: boolean;
   
   // --- Context Window Settings ---
   targetContextWindow: number;
@@ -171,6 +172,8 @@ interface AppState {
   closeFilePreview: () => void;
   togglePrivacyFilter: () => void;
   setPrivacyFilterEnabled: (enabled: boolean) => void;
+  setExporting: (exporting: boolean) => void;
+  refreshDirectory: () => Promise<void>;
   
   // --- Recent Folders Actions ---
   loadRecentFolders: () => void;
@@ -620,6 +623,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   previewFile: null,
   isPrivacyFilterEnabled: true, // Default to true for safety
   isSettingsOpen: false,
+  isExporting: false,
   
   // ---------------------------------------------------------------------------
   // Initial State - Context Window Settings
@@ -1061,6 +1065,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else {
       // No output, just set the state
       set({ isPrivacyFilterEnabled: enabled });
+    }
+  },
+
+  setExporting: (exporting: boolean) => {
+    set({ isExporting: exporting });
+  },
+
+  refreshDirectory: async () => {
+    const { rootPath, scanDirectory, generateContext, selectedPaths } = get();
+    if (!rootPath) return;
+    
+    // Rescan the directory with current root path
+    await scanDirectory(rootPath);
+    
+    // If there were selected files, regenerate context
+    if (selectedPaths.size > 0) {
+      await generateContext();
     }
   },
 

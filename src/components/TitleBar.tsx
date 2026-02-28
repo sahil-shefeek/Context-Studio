@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platform } from "@tauri-apps/plugin-os";
 import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "../store/appStore";
+import logoImg from "../assets/logo-1-no-bg.png";
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -13,11 +14,11 @@ export function TitleBar() {
   const handleMouseDown = useCallback(async (e: React.MouseEvent) => {
     // Only handle left mouse button and ignore if clicking on interactive elements
     if (e.button !== 0) return;
-    
+
     const target = e.target as HTMLElement;
     // Skip if clicking on buttons or other interactive elements
     if (target.closest('button')) return;
-    
+
     const appWindow = getCurrentWindow();
     if (e.detail === 2) {
       // Double click to toggle maximize
@@ -76,14 +77,12 @@ export function TitleBar() {
   return (
     <div className="h-10 min-h-10 bg-(--bg-secondary) border-b border-(--border-color) flex items-center select-none">
       {/* Left: Draggable region with app branding */}
-      <div 
+      <div
         className="flex-1 flex items-center gap-2 px-4 h-full cursor-default"
         data-tauri-drag-region
         onMouseDown={handleMouseDown}
       >
-        <div className="w-5 h-5 rounded bg-(--accent-color) flex items-center justify-center pointer-events-none">
-          <span className="text-white text-xs font-bold">CS</span>
-        </div>
+        <img src={logoImg} alt="Context Studio" className="w-5 h-5 pointer-events-none" />
         <span className="text-sm font-semibold text-(--text-primary) pointer-events-none">
           Context Studio
         </span>

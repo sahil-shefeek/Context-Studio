@@ -2,6 +2,7 @@ import { FolderOpen, Clock, X, BookOpen, Settings } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { useMemo } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import logoImg from "../assets/logo-1-no-bg.png";
 
 interface WelcomeScreenProps {
   onOpenDocumentation: () => void;
@@ -51,14 +52,14 @@ export function WelcomeScreen({ onOpenDocumentation }: WelcomeScreenProps) {
 
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center animate-in fade-in duration-300 overflow-y-auto py-8">
-      <div className="w-20 h-20 rounded-2xl bg-(--accent-color)/10 flex items-center justify-center mb-6">
-        <FolderOpen className="w-10 h-10 text-(--accent-color)" />
+      <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6">
+        <img src={logoImg} alt="Context Studio" className="w-16 h-16" />
       </div>
       <h2 className="text-2xl font-semibold text-(--text-primary) mb-2">Welcome to Context Studio</h2>
       <p className="text-(--text-secondary) max-w-md mb-8">
         Open a folder to scan your project files and generate AI-friendly context.
       </p>
-      
+
       {/* Quick Start Section */}
       <div className="w-full max-w-2xl mb-8">
         <h3 className="text-sm font-medium text-(--text-muted) uppercase tracking-wider mb-4">Quick Start</h3>
@@ -113,7 +114,7 @@ export function WelcomeScreen({ onOpenDocumentation }: WelcomeScreenProps) {
           </button>
         </div>
       </div>
-      
+
       {/* Recent Folders as Project Cards */}
       {displayRecentFolders.length > 0 && (
         <div className="w-full max-w-2xl">

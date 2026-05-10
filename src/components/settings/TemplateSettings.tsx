@@ -41,6 +41,14 @@ export function TemplateSettings() {
   };
 
   const startEditingTemplate = (template: PromptTemplate) => {
+    if (editingTemplate && (newTemplateName !== "" || newTemplateText !== "")) {
+      const currentEdit = promptTemplates.find(t => t.id === editingTemplate);
+      if (currentEdit && (newTemplateName !== currentEdit.name || newTemplateText !== currentEdit.text)) {
+        if (!confirm("You have unsaved changes. Are you sure you want to discard them?")) {
+          return;
+        }
+      }
+    }
     setEditingTemplate(template.id);
     setNewTemplateName(template.name);
     setNewTemplateText(template.text);

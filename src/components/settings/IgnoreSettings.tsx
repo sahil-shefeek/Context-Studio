@@ -1,8 +1,8 @@
-import { Filter, RefreshCw } from "lucide-react";
+import { Filter } from "lucide-react";
 import { useAppStore, FRAMEWORK_PRESETS } from "../../store/appStore";
 import { useShallow } from "zustand/react/shallow";
 import { useState, useEffect } from "react";
-import { Button, Switch, Checkbox, Textarea, Separator } from "../ui";
+import { Switch, Checkbox, Textarea, Separator } from "../ui";
 
 export function IgnoreSettings() {
   const {
@@ -36,26 +36,24 @@ export function IgnoreSettings() {
   })));
 
   const [localIgnorePatterns, setLocalIgnorePatterns] = useState(customIgnorePatterns);
-  const [patternsChanged, setPatternsChanged] = useState(false);
 
   // Sync local state with store when opening
   useEffect(() => {
     if (isSettingsOpen) {
       setLocalIgnorePatterns(customIgnorePatterns);
-      setPatternsChanged(false);
     }
   }, [isSettingsOpen, customIgnorePatterns]);
 
   const handleIgnorePatternsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setLocalIgnorePatterns(e.target.value);
-    setPatternsChanged(e.target.value !== customIgnorePatterns);
   };
 
-  const handleApplyIgnorePatterns = async () => {
-    setCustomIgnorePatterns(localIgnorePatterns);
-    setPatternsChanged(false);
-    if (rootPath) {
-      await scanDirectory(rootPath);
+  const handleIgnorePatternsBlur = async () => {
+    if (localIgnorePatterns !== customIgnorePatterns) {
+      setCustomIgnorePatterns(localIgnorePatterns);
+      if (rootPath) {
+        await scanDirectory(rootPath);
+      }
     }
   };
 
@@ -126,6 +124,7 @@ export function IgnoreSettings() {
             <Textarea
               value={localIgnorePatterns}
               onChange={handleIgnorePatternsChange}
+              onBlur={handleIgnorePatternsBlur}
               rows={6}
               placeholder={"# Example patterns:\n*.log\n*.tmp\ntest_data\nsecrets.json"}
               className="font-mono"
@@ -134,17 +133,6 @@ export function IgnoreSettings() {
               Use *.ext for extensions, folder names, or # for comments
             </p>
           </div>
-          {patternsChanged && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleApplyIgnorePatterns}
-              className="w-full"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Apply & Rescan Project
-            </Button>
-          )}
         </div>
       </section>
     </div>

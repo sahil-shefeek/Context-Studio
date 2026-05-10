@@ -77,14 +77,14 @@ export function FilePreviewModal({ filePath, fileName, content, onClose }: FileP
       onClick={onClose}
     >
       <div 
-        className="w-[90%] max-w-4xl h-[80vh] bg-(--bg-primary) rounded-lg border border-[var(--border-color)] shadow-2xl flex flex-col overflow-hidden"
+        className="w-[90%] max-w-4xl h-[80vh] bg-(--bg-primary) rounded-lg border border-(--border-color) shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-(--border-color) bg-(--bg-secondary)">
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-[var(--text-primary)]">{fileName}</span>
-            <span className="text-xs text-[var(--text-muted)] truncate max-w-[500px]">{filePath}</span>
+            <span className="text-sm font-semibold text-(--text-primary)">{fileName}</span>
+            <span className="text-xs text-(--text-muted) truncate max-w-[500px]">{filePath}</span>
           </div>
           <Button
             variant="ghost"
@@ -107,7 +107,7 @@ export function FilePreviewModal({ filePath, fileName, content, onClose }: FileP
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 border-t border-[var(--border-color)] bg-[var(--bg-secondary)] flex items-center justify-between text-xs text-[var(--text-secondary)]">
+        <div className="px-4 py-2 border-t border-(--border-color) bg-(--bg-secondary) flex items-center justify-between text-xs text-(--text-secondary)">
           <Badge variant="secondary">{language}</Badge>
           <span>{content.split("\n").length} lines • {content.length.toLocaleString()} characters</span>
         </div>

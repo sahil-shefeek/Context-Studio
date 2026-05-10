@@ -23,6 +23,7 @@ function App() {
     clearFileTree: s.clearFileTree,
     getOutputWithTemplate: s.getOutputWithTemplate,
     scanDirectory: s.scanDirectory,
+    syncSystemTheme: s.syncSystemTheme,
   })));
 
   // Handle opening folder via keyboard shortcut
@@ -55,7 +56,20 @@ function App() {
 
   // Apply theme class on mount and when theme changes
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    if (theme !== "system") {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = () => {
+      useAppStore.getState().syncSystemTheme();
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    useAppStore.getState().syncSystemTheme();
+    
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, [theme]);
 
   // Restore previous session on mount

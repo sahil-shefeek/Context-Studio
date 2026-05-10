@@ -78,8 +78,8 @@ function SortableFileItem({
       className={`
         flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all
         ${isDragging 
-          ? "opacity-50 bg-[var(--accent-color)]/10 border-[var(--accent-color)]" 
-          : "bg-[var(--bg-secondary)] border-[var(--border-color)] hover:border-[var(--accent-color)]/50"
+          ? "opacity-50 bg-(--accent-color)/10 border-(--accent-color)" 
+          : "bg-(--bg-secondary) border-(--border-color) hover:border-(--accent-color)/50"
         }
         ${isInAttentionZone ? "ring-1 ring-inset" : ""}
         ${isInPrimacyZone ? "ring-green-500/40" : ""}
@@ -90,23 +90,23 @@ function SortableFileItem({
       <button
         {...attributes}
         {...listeners}
-        className="p-1 rounded hover:bg-[var(--bg-tertiary)] cursor-grab active:cursor-grabbing text-[var(--text-muted)] hover:text-[var(--text-secondary)] flex-shrink-0"
+        className="p-1 rounded hover:bg-(--bg-tertiary) cursor-grab active:cursor-grabbing text-(--text-muted) hover:text-(--text-secondary) flex-shrink-0"
       >
         <GripVertical className="w-4 h-4" />
       </button>
 
       {/* Position indicator */}
-      <span className="text-xs font-mono text-[var(--text-muted)] w-6 text-center flex-shrink-0">
+      <span className="text-xs font-mono text-(--text-muted) w-6 text-center flex-shrink-0">
         {index + 1}
       </span>
 
       {/* File icon */}
-      <FileText className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0" />
+      <FileText className="w-4 h-4 text-(--text-muted) flex-shrink-0" />
 
       {/* File info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-[var(--text-primary)] truncate">
+          <span className="text-sm font-medium text-(--text-primary) truncate">
             {fileName}
           </span>
           {isInPrimacyZone && (
@@ -122,7 +122,7 @@ function SortableFileItem({
             </Badge>
           )}
         </div>
-        <span className="text-xs text-[var(--text-muted)] truncate block">
+        <span className="text-xs text-(--text-muted) truncate block">
           {relativePath}
         </span>
       </div>
@@ -130,22 +130,22 @@ function SortableFileItem({
       {/* Token info */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className="text-right">
-          <div className="text-xs font-medium text-[var(--text-secondary)]">
+          <div className="text-xs font-medium text-(--text-secondary)">
             {tokenCount.toLocaleString()} tokens
           </div>
-          <div className="text-[10px] text-[var(--text-muted)]">
+          <div className="text-[10px] text-(--text-muted)">
             {percentage}% of total
           </div>
         </div>
         {/* Token percentage bar */}
-        <div className="w-12 h-6 bg-[var(--bg-tertiary)] rounded overflow-hidden flex items-end">
+        <div className="w-12 h-6 bg-(--bg-tertiary) rounded overflow-hidden flex items-end">
           <div 
             className={`w-full transition-all duration-300 rounded-t ${
               isInAttentionZone 
                 ? isInPrimacyZone 
                   ? "bg-green-500/60" 
                   : "bg-blue-500/60"
-                : "bg-[var(--accent-color)]/40"
+                : "bg-(--accent-color)/40"
             }`}
             style={{ height: `${Math.max(4, Math.min(100, percentage * 2))}%` }}
           />
@@ -219,11 +219,11 @@ export function OrganizeContext() {
   if (orderedFiles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <FileText className="w-12 h-12 text-[var(--border-color)] mb-4" />
-        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+        <FileText className="w-12 h-12 text-(--border-color) mb-4" />
+        <h3 className="text-lg font-semibold text-(--text-primary) mb-2">
           No Files Selected
         </h3>
-        <p className="text-sm text-[var(--text-secondary)] max-w-sm">
+        <p className="text-sm text-(--text-secondary) max-w-sm">
           Select files from the sidebar to organize their order in the generated context.
         </p>
       </div>
@@ -233,19 +233,19 @@ export function OrganizeContext() {
   return (
     <div className="flex flex-col h-full">
       {/* Header explanation */}
-      <div className="px-4 py-3 bg-[var(--bg-secondary)] border-b border-[var(--border-color)] rounded-t-lg">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-[var(--accent-color)]" />
+      <div className="px-4 py-3 bg-(--bg-secondary) border-b border-(--border-color) rounded-t-lg">
+        <h3 className="text-sm font-semibold text-(--text-primary) mb-1 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-(--accent-color)" />
           Optimize for AI Attention
         </h3>
-        <p className="text-xs text-[var(--text-secondary)]">
+        <p className="text-xs text-(--text-secondary)">
           Drag files to reorder. LLMs pay more attention to content at the <span className="text-green-500 font-medium">beginning</span> (primacy) 
           and <span className="text-blue-500 font-medium">end</span> (recency) of the context window.
         </p>
       </div>
 
       {/* Attention zone indicators */}
-      <div className="flex items-center gap-4 px-4 py-2 text-xs text-[var(--text-muted)] border-b border-[var(--border-color)]">
+      <div className="flex items-center gap-4 px-4 py-2 text-xs text-(--text-muted) border-b border-(--border-color)">
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-green-500" />
           <span>Primacy Zone ({primacyCount} file{primacyCount !== 1 ? 's' : ''})</span>
@@ -287,8 +287,8 @@ export function OrganizeContext() {
       </div>
 
       {/* Footer tip */}
-      <div className="px-4 py-2.5 border-t border-[var(--border-color)] bg-[var(--bg-tertiary)]/50">
-        <p className="text-[11px] text-[var(--text-muted)] text-center">
+      <div className="px-4 py-2.5 border-t border-(--border-color) bg-(--bg-tertiary)/50">
+        <p className="text-[11px] text-(--text-muted) text-center">
           💡 <span className="font-medium">Tip:</span> Place entry points and core logic at the top or bottom for better AI understanding.
         </p>
       </div>

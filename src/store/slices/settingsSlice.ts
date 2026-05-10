@@ -90,6 +90,7 @@ export interface SettingsSlice {
   resetTemplatesToDefault: () => void;
   clearAllStorage: () => void;
   restoreSession: () => Promise<void>;
+  syncSystemTheme: () => void;
 }
 
 // Combined store type for cross-slice access
@@ -140,6 +141,15 @@ export const createSettingsSlice: StateCreator<
     // Cycle through: dark -> light -> system -> dark
     const nextTheme = theme === "dark" ? "light" : theme === "light" ? "system" : "dark";
     setTheme(nextTheme);
+  },
+
+  syncSystemTheme: () => {
+    const { theme } = get();
+    if (theme === "system") {
+      const resolved = resolveTheme("system");
+      document.documentElement.classList.toggle("dark", resolved === "dark");
+      set({ resolvedTheme: resolved });
+    }
   },
 
   // ---------------------------------------------------------------------------

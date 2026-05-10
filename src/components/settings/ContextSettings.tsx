@@ -35,20 +35,30 @@ export function ContextSettings() {
   }, [isSettingsOpen, targetContextWindow, maxFileSizeKb]);
 
   const handleContextWindowChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setLocalContextWindow(value);
-    const num = parseInt(value, 10);
+    setLocalContextWindow(e.target.value);
+  };
+
+  const handleContextWindowBlurOrEnter = () => {
+    const num = parseInt(localContextWindow, 10);
     if (!isNaN(num) && num > 0) {
       setTargetContextWindow(num);
+      setLocalContextWindow(num.toString());
+    } else {
+      setLocalContextWindow(targetContextWindow.toString());
     }
   };
 
   const handleMaxFileSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setLocalMaxFileSize(value);
-    const num = parseInt(value, 10);
+    setLocalMaxFileSize(e.target.value);
+  };
+
+  const handleMaxFileSizeBlurOrEnter = () => {
+    const num = parseInt(localMaxFileSize, 10);
     if (!isNaN(num) && num > 0) {
       setMaxFileSizeKb(num);
+      setLocalMaxFileSize(num.toString());
+    } else {
+      setLocalMaxFileSize(maxFileSizeKb.toString());
     }
   };
 
@@ -69,6 +79,8 @@ export function ContextSettings() {
               type="number"
               value={localContextWindow}
               onChange={handleContextWindowChange}
+              onBlur={handleContextWindowBlurOrEnter}
+              onKeyDown={(e) => e.key === 'Enter' && handleContextWindowBlurOrEnter()}
               min="1000"
               step="1000"
             />
@@ -111,6 +123,8 @@ export function ContextSettings() {
               type="number"
               value={localMaxFileSize}
               onChange={handleMaxFileSizeChange}
+              onBlur={handleMaxFileSizeBlurOrEnter}
+              onKeyDown={(e) => e.key === 'Enter' && handleMaxFileSizeBlurOrEnter()}
               min="64"
               step="64"
             />

@@ -1,5 +1,6 @@
-import * as React from "react";
-import { ChevronDown, Check } from "lucide-react";
+
+import * as SelectPrimitive from "@radix-ui/react-select";
+import { Check, ChevronDown } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 interface SelectOption {
@@ -24,90 +25,51 @@ export function Select({
   className,
   disabled = false,
 }: SelectProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const selectRef = React.useRef<HTMLDivElement>(null);
-
-  const selectedOption = options.find((opt) => opt.value === value);
-
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Close dropdown on escape
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("keydown", handleKeyDown);
-      return () => document.removeEventListener("keydown", handleKeyDown);
-    }
-  }, [isOpen]);
-
   return (
-    <div ref={selectRef} className={cn("relative", className)}>
-      <button
-        type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={disabled}
+    <SelectPrimitive.Root value={value} onValueChange={onValueChange} disabled={disabled}>
+      <SelectPrimitive.Trigger
         className={cn(
-          "flex h-8 w-full items-center justify-between gap-2 rounded border border-(--border-color) bg-[var(--bg-secondary)] px-3 py-1.5 text-sm text-[var(--text-primary)] transition-colors",
-          "hover:bg-[var(--bg-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-1",
+          "flex h-8 w-full items-center justify-between gap-2 rounded border border-(--border-color) bg-(--bg-secondary) px-3 py-1.5 text-sm text-(--text-primary) transition-colors",
+          "hover:bg-(--bg-tertiary) focus:outline-none focus:ring-2 focus:ring-(--accent-color) focus:ring-offset-1",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          isOpen && "ring-2 ring-[var(--accent-color)]"
+          "data-[state=open]:ring-2 data-[state=open]:ring-(--accent-color)",
+          className
         )}
       >
-        <span className={cn(!selectedOption && "text-[var(--text-muted)]")}>
-          {selectedOption?.label || placeholder}
-        </span>
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 text-[var(--text-muted)] transition-transform duration-200",
-            isOpen && "rotate-180"
-          )}
-        />
-      </button>
-
-      {isOpen && (
-        <div className="absolute z-50 mt-1 w-full min-w-[180px] overflow-hidden rounded border border-[var(--border-color)] bg-[var(--bg-secondary)] shadow-lg animate-in fade-in-0 zoom-in-95 duration-100">
-          <div className="max-h-60 overflow-auto p-1">
+        <SelectPrimitive.Value placeholder={placeholder} />
+        <SelectPrimitive.Icon asChild>
+          <ChevronDown className="h-4 w-4 opacity-50" />
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
+      
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          className="relative z-50 min-w-[180px] overflow-hidden rounded border border-(--border-color) bg-(--bg-secondary) shadow-lg animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+          position="popper"
+          sideOffset={4}
+        >
+          <SelectPrimitive.Viewport className="p-1">
             {options.map((option) => (
-              <button
+              <SelectPrimitive.Item
                 key={option.value}
-                type="button"
-                onClick={() => {
-                  onValueChange(option.value);
-                  setIsOpen(false);
-                }}
+                value={option.value}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-[var(--text-secondary)] transition-colors",
-                  "hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]",
-                  option.value === value && "bg-[var(--accent-color)]/10 text-[var(--accent-color)]"
+                  "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors",
+                  "focus:bg-(--bg-tertiary) focus:text-(--text-primary) text-(--text-secondary)",
+                  "data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                 )}
               >
-                <Check
-                  className={cn(
-                    "h-4 w-4 flex-shrink-0",
-                    option.value === value ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                <span className="truncate">{option.label}</span>
-              </button>
+                <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                  <SelectPrimitive.ItemIndicator>
+                    <Check className="h-4 w-4" />
+                  </SelectPrimitive.ItemIndicator>
+                </span>
+                <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+              </SelectPrimitive.Item>
             ))}
-          </div>
-        </div>
-      )}
-    </div>
+          </SelectPrimitive.Viewport>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
   );
 }

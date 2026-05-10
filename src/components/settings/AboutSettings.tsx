@@ -1,11 +1,22 @@
 import { Github, Keyboard } from "lucide-react";
 import { Separator } from "../ui";
 import logoImg from "../../assets/logo-1-no-bg.png";
+import { getVersion } from '@tauri-apps/api/app';
+import { useEffect, useState } from 'react';
 
 export function AboutSettings() {
   // Detect platform for keyboard shortcut display
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const cmdKey = isMac ? '⌘' : 'Ctrl';
+
+
+
+  // Inside your component:
+  const [appVersion, setAppVersion] = useState("...");
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion("Unknown"));
+  }, []);
 
   return (
     <div className="space-y-6 about-section">
@@ -25,7 +36,7 @@ export function AboutSettings() {
               <h4 className="font-semibold text-(--text-primary) text-base tracking-tight">
                 Context Studio
               </h4>
-              <p className="text-xs text-(--text-muted) font-medium">Version 1.0.0</p>
+              <p className="text-xs text-(--text-muted) font-medium">Version {appVersion}</p>
             </div>
           </div>
           <p

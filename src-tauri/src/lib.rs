@@ -196,7 +196,7 @@ fn build_walker(
 fn scan_directory(base_path: &Path, builder: &WalkBuilder) -> Option<Vec<FileNode>> {
     use std::collections::BTreeMap;
 
-    // Build a tree structure from walk results
+    // Build a flat map from walk results
     let mut tree: BTreeMap<String, FileNode> = BTreeMap::new();
 
     // Clone the builder for iteration
@@ -225,38 +225,33 @@ fn scan_directory(base_path: &Path, builder: &WalkBuilder) -> Option<Vec<FileNod
         });
     }
 
-    // Now rebuild into proper tree structure
+    // Get sorted keys
     let paths: Vec<String> = tree.keys().cloned().collect();
 
-    // For each entry, find its parent and add as child
-    for path_str in &paths {
-        let path = Path::new(path_str);
+    // Rebuild into proper tree structure BOTTOM-UP by reversing the paths.
+    // This guarantees children are added to their parents *before* the parent
+    // is moved into its grandparent.
+    for path_str in paths.into_iter().rev() {
+        let path = Path::new(&path_str);
         if let Some(parent) = path.parent() {
             let parent_str = parent.to_string_lossy().to_string();
-            if let Some(node) = tree.get(path_str).cloned() {
-                if let Some(parent_node) = tree.get_mut(&parent_str) {
-                    if let Some(ref mut children) = parent_node.children {
-                        children.push(node);
+
+            // If the parent exists in our map, remove this node and move it into its parent
+            if tree.contains_key(&parent_str) {
+                if let Some(node) = tree.remove(&path_str) {
+                    if let Some(parent_node) = tree.get_mut(&parent_str) {
+                        if let Some(ref mut children) = parent_node.children {
+                            children.push(node);
+                        }
                     }
                 }
             }
         }
     }
 
-    // Get direct children of base_path
-    let base_str = base_path.to_string_lossy().to_string();
-    let mut result: Vec<FileNode> = Vec::new();
-
-    for path_str in &paths {
-        let path = Path::new(path_str);
-        if let Some(parent) = path.parent() {
-            if parent.to_string_lossy().to_string() == base_str {
-                if let Some(node) = tree.remove(path_str) {
-                    result.push(node);
-                }
-            }
-        }
-    }
+    // Because we moved all children into their parents, what remains in the map
+    // are ONLY the top-level files and folders (direct children of base_path).
+    let mut result: Vec<FileNode> = tree.into_values().collect();
 
     // Sort the entire tree recursively
     sort_tree_recursive(&mut result);

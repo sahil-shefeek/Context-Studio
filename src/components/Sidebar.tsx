@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   FolderTree,
   Loader2,
@@ -16,6 +16,7 @@ import { Button } from "./ui";
 import { FileTreeNode } from "./FileTreeNode";
 import { SearchInput } from "./SearchInput";
 import { toast } from "sonner";
+import { Virtuoso } from "react-virtuoso";
 
 // Helper to filter tree based on search query
 function filterTree(node: FileNode, query: string): FileNode | null {
@@ -41,9 +42,14 @@ function filterTree(node: FileNode, query: string): FileNode | null {
     return null;
   }
   
-  // For files, only include if name matches
+// For files, only include if name matches
   return nameMatches ? node : null;
 }
+
+type FlatNode = {
+  node: FileNode;
+  depth: number;
+};
 
 export function Sidebar() {
   const {
@@ -74,12 +80,42 @@ export function Sidebar() {
     refreshDirectory: s.refreshDirectory,
   })));
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
+
+  const toggleFolder = useCallback((path: string, defaultExpanded: boolean) => {
+    setExpandedPaths((prev) => ({
+      ...prev,
+      [path]: prev[path] !== undefined ? !prev[path] : !defaultExpanded,
+    }));
+  }, []);
 
   // Filter tree based on search query
   const filteredTree = useMemo(() => {
     if (!fileTree || !searchQuery.trim()) return fileTree;
     return filterTree(fileTree, searchQuery.trim());
   }, [fileTree, searchQuery]);
+
+  // Flatten the filtered tree for virtualization
+  const flatNodes = useMemo(() => {
+    if (!filteredTree) return [];
+    const result: FlatNode[] = [];
+
+    function flatten(node: FileNode, depth: number) {
+      result.push({ node, depth });
+      const isExpanded = expandedPaths[node.path] !== undefined
+        ? expandedPaths[node.path]
+        : depth < 2; // Auto-expand first 2 levels
+
+      if (node.is_dir && isExpanded && node.children) {
+        for (const child of node.children) {
+          flatten(child, depth + 1);
+        }
+      }
+    }
+
+    flatten(filteredTree, 0);
+    return result;
+  }, [filteredTree, expandedPaths]);
 
   const handleOpenFolder = async () => {
     try {
@@ -252,7 +288,24 @@ export function Sidebar() {
           </div>
         )}
 
-        {fileTree && filteredTree && <FileTreeNode node={filteredTree} />}
+        {fileTree && filteredTree && (
+          <Virtuoso
+            data={flatNodes}
+            itemContent={(_, { node, depth }) => (
+              <FileTreeNode
+                node={node}
+                depth={depth}
+                isExpanded={
+                  expandedPaths[node.path] !== undefined
+                    ? expandedPaths[node.path]
+                    : depth < 2
+                }
+                onToggleExpand={() => toggleFolder(node.path, depth < 2)}
+              />
+            )}
+            className="w-full h-full"
+          />
+        )}
         
         {/* No search results */}
         {fileTree && searchQuery && !filteredTree && (

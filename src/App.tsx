@@ -13,8 +13,6 @@ function App() {
     restoreSession,
     openSettings,
     clearFileTree,
-    getOutputWithTemplate,
-    generatedOutput,
     scanDirectory,
   } = useAppStore(useShallow((s) => ({
     theme: s.theme,
@@ -24,7 +22,6 @@ function App() {
     openSettings: s.openSettings,
     clearFileTree: s.clearFileTree,
     getOutputWithTemplate: s.getOutputWithTemplate,
-    generatedOutput: s.generatedOutput,
     scanDirectory: s.scanDirectory,
   })));
 
@@ -47,14 +44,14 @@ function App() {
 
   // Handle copy context via keyboard shortcut
   const handleCopyContext = useCallback(async () => {
-    const output = getOutputWithTemplate();
+    const output = useAppStore.getState().getOutputWithTemplate();
     if (!output) return;
     try {
       await navigator.clipboard.writeText(output);
     } catch (err) {
       console.error("Failed to copy:", err);
     }
-  }, [getOutputWithTemplate]);
+  }, []);
 
   // Apply theme class on mount and when theme changes
   useEffect(() => {
@@ -97,15 +94,22 @@ function App() {
       } else if (cmdOrCtrl && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         clearFileTree();
-      } else if (cmdOrCtrl && e.key.toLowerCase() === 'c' && !isEditing && generatedOutput) {
-        e.preventDefault();
-        handleCopyContext();
+      } else if (cmdOrCtrl && e.key.toLowerCase() === 'c' && !isEditing) {
+        // Fix for "Copy" hijacking: only copy context if no text is selected
+        const hasSelection = (window.getSelection()?.toString().length ?? 0) > 0;
+        if (!hasSelection) {
+          const state = useAppStore.getState();
+          if (state.generatedOutput) {
+            e.preventDefault();
+            handleCopyContext();
+          }
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleOpenFolder, openSettings, clearFileTree, handleCopyContext, generatedOutput]);
+  }, [handleOpenFolder, openSettings, clearFileTree, handleCopyContext]);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden">

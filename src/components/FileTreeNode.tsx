@@ -1,4 +1,4 @@
-import { useState } from "react";
+
 import {
   ChevronRight,
   ChevronDown,
@@ -17,10 +17,11 @@ import { Badge } from "./ui";
 interface FileTreeNodeProps {
   node: FileNode;
   depth?: number;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
-export function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
-  const [isExpanded, setIsExpanded] = useState(depth < 2); // Auto-expand first 2 levels
+export function FileTreeNode({ node, depth = 0, isExpanded = false, onToggleExpand }: FileTreeNodeProps) {
   const { selectedPaths, togglePathRange, openFilePreview, getFileTokenPercentage, getFolderTokenPercentage } = useAppStore(
     useShallow((s) => ({
       selectedPaths: s.selectedPaths,
@@ -53,8 +54,8 @@ export function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
   };
 
   const handleExpand = () => {
-    if (node.is_dir) {
-      setIsExpanded(!isExpanded);
+    if (node.is_dir && onToggleExpand) {
+      onToggleExpand();
     }
   };
 
@@ -170,15 +171,6 @@ export function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
           </button>
         )}
       </div>
-
-      {/* Children */}
-      {node.is_dir && isExpanded && node.children && (
-        <div>
-          {node.children.map((child) => (
-            <FileTreeNode key={child.path} node={child} depth={depth + 1} />
-          ))}
-        </div>
-      )}
     </div>
   );
 }

@@ -1,13 +1,14 @@
 import { Minus, Square, X, Maximize2, Settings } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { platform } from "@tauri-apps/plugin-os";
+
 import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "../store/appStore";
 import logoImg from "../assets/logo-1-no-bg.png";
 
+const IS_MACOS = navigator.platform.toUpperCase().indexOf('MAC') >= 0 || navigator.userAgent.toLowerCase().includes('mac');
+
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [isMacOS, setIsMacOS] = useState(false);
   const openSettings = useAppStore((s) => s.openSettings);
 
   // Manual drag handler for better cross-platform support (especially Linux)
@@ -30,17 +31,6 @@ export function TitleBar() {
   }, []);
 
   useEffect(() => {
-    // Check platform to hide window controls on macOS
-    const checkPlatform = async () => {
-      try {
-        const os = platform();
-        setIsMacOS(os === "macos");
-      } catch {
-        // Fallback: assume not macOS
-        setIsMacOS(false);
-      }
-    };
-    checkPlatform();
 
     const checkMaximized = async () => {
       const appWindow = getCurrentWindow();
@@ -100,7 +90,7 @@ export function TitleBar() {
         </button>
 
         {/* Window controls - hidden on macOS */}
-        {!isMacOS && (
+        {!IS_MACOS && (
           <>
             <div className="w-px h-4 bg-(--border-color)" />
             <button

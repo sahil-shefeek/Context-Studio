@@ -102,9 +102,9 @@ export function Sidebar() {
 
     function flatten(node: FileNode, depth: number) {
       result.push({ node, depth });
-      const isExpanded = expandedPaths[node.path] !== undefined
+      const isExpanded = searchQuery.trim() !== "" ? true : (expandedPaths[node.path] !== undefined
         ? expandedPaths[node.path]
-        : depth < 2; // Auto-expand first 2 levels
+        : depth < 2); // Auto-expand first 2 levels
 
       if (node.is_dir && isExpanded && node.children) {
         for (const child of node.children) {
@@ -115,7 +115,7 @@ export function Sidebar() {
 
     flatten(filteredTree, 0);
     return result;
-  }, [filteredTree, expandedPaths]);
+  }, [filteredTree, expandedPaths, searchQuery]);
 
   const handleOpenFolder = async () => {
     try {
@@ -296,9 +296,9 @@ export function Sidebar() {
                 node={node}
                 depth={depth}
                 isExpanded={
-                  expandedPaths[node.path] !== undefined
+                  searchQuery.trim() !== "" ? true : (expandedPaths[node.path] !== undefined
                     ? expandedPaths[node.path]
-                    : depth < 2
+                    : depth < 2)
                 }
                 onToggleExpand={() => toggleFolder(node.path, depth < 2)}
               />

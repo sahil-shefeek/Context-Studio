@@ -1,9 +1,8 @@
 import { X } from "lucide-react";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark, oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useAppStore } from "../store/appStore";
 import { useEffect } from "react";
 import { Button, Badge } from "./ui";
+import { CodeMirrorEditor } from "./CodeMirrorEditor";
 
 interface FilePreviewModalProps {
   filePath: string;
@@ -71,7 +70,6 @@ export function FilePreviewModal({ filePath, fileName, content, onClose }: FileP
   }, [onClose]);
 
   const language = getLanguageFromPath(filePath);
-  const syntaxTheme = theme === "dark" ? oneDark : oneLight;
 
   return (
     <div 
@@ -99,27 +97,13 @@ export function FilePreviewModal({ filePath, fileName, content, onClose }: FileP
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto">
-          <SyntaxHighlighter
-            language={language}
-            style={syntaxTheme}
-            showLineNumbers
-            customStyle={{
-              margin: 0,
-              padding: "1rem",
-              background: theme === "dark" ? "var(--code-bg)" : "var(--bg-secondary)",
-              fontSize: "13px",
-              minHeight: "100%",
-            }}
-            lineNumberStyle={{
-              minWidth: "3em",
-              paddingRight: "1em",
-              color: "var(--text-muted)",
-              userSelect: "none",
-            }}
-          >
-            {content}
-          </SyntaxHighlighter>
+        <div className="flex-1 overflow-hidden">
+          <CodeMirrorEditor
+            value={content}
+            onChange={() => {}}
+            theme={theme}
+            readOnly={true}
+          />
         </div>
 
         {/* Footer */}

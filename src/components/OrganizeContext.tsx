@@ -25,20 +25,22 @@ interface SortableFileItemProps {
   id: string;
   path: string;
   index: number;
-  totalFiles: number;
   tokenCount: number;
   totalTokens: number;
   rootPath: string | null;
+  startToken: number;
+  endToken: number;
 }
 
 function SortableFileItem({ 
   id, 
   path, 
   index, 
-  totalFiles, 
   tokenCount, 
   totalTokens,
-  rootPath 
+  rootPath,
+  startToken,
+  endToken
 }: SortableFileItemProps) {
   const {
     attributes,
@@ -57,12 +59,12 @@ function SortableFileItem({
   // Calculate percentage
   const percentage = totalTokens > 0 ? Math.round((tokenCount / totalTokens) * 100) : 0;
   
-  // Calculate if in attention zone (first 10% or last 10%)
-  const primacyThreshold = Math.max(1, Math.ceil(totalFiles * 0.1));
-  const recencyThreshold = totalFiles - Math.max(1, Math.ceil(totalFiles * 0.1));
+  // Calculate if in attention zone (first 10% or last 10% of TOKENS)
+  const primacyTokenThreshold = totalTokens * 0.1;
+  const recencyTokenThreshold = totalTokens * 0.9;
   
-  const isInPrimacyZone = index < primacyThreshold;
-  const isInRecencyZone = index >= recencyThreshold;
+  const isInPrimacyZone = startToken <= primacyTokenThreshold;
+  const isInRecencyZone = endToken >= recencyTokenThreshold;
   const isInAttentionZone = isInPrimacyZone || isInRecencyZone;
 
   // Get relative path for display
@@ -189,20 +191,30 @@ export function OrganizeContext() {
     }
   };
 
-  // Calculate attention zone stats
-  const primacyCount = Math.max(1, Math.ceil(totalFiles * 0.1));
-  const recencyCount = Math.max(1, Math.ceil(totalFiles * 0.1));
-
   // Memoize the list items to avoid unnecessary re-renders
-  const listItems = useMemo(() => 
-    orderedFiles.map((path, index) => ({
-      id: path,
-      path,
-      index,
-      tokenCount: fileTokenMap.get(path) || 0,
-    })),
-    [orderedFiles, fileTokenMap]
-  );
+  const listItems = useMemo(() => {
+    let currentTokenSum = 0;
+    return orderedFiles.map((path, index) => {
+      const fileTokens = fileTokenMap.get(path) || 0;
+      const startToken = currentTokenSum;
+      const endToken = currentTokenSum + fileTokens;
+      currentTokenSum += fileTokens;
+      return {
+        id: path,
+        path,
+        index,
+        tokenCount: fileTokens,
+        startToken,
+        endToken,
+      };
+    });
+  }, [orderedFiles, fileTokenMap]);
+
+  // Calculate attention zone stats
+  const primacyTokenThreshold = tokenCount * 0.1;
+  const recencyTokenThreshold = tokenCount * 0.9;
+  const primacyCount = listItems.filter(item => item.startToken <= primacyTokenThreshold).length || 1;
+  const recencyCount = listItems.filter(item => item.endToken >= recencyTokenThreshold).length || 1;
 
   if (orderedFiles.length === 0) {
     return (
@@ -263,10 +275,11 @@ export function OrganizeContext() {
                 id={item.id}
                 path={item.path}
                 index={item.index}
-                totalFiles={totalFiles}
                 tokenCount={item.tokenCount}
                 totalTokens={tokenCount}
                 rootPath={rootPath}
+                startToken={item.startToken}
+                endToken={item.endToken}
               />
             ))}
           </SortableContext>

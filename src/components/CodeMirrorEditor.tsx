@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, placeholder as cmPlaceholder } from "@codemirror/view";
-import { EditorState, Extension } from "@codemirror/state";
+import { EditorState, Extension, Compartment } from "@codemirror/state";
 import { markdown } from "@codemirror/lang-markdown";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -98,6 +98,8 @@ export function CodeMirrorEditor({
 }: CodeMirrorEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const themeCompartment = useRef(new Compartment());
+  const readOnlyCompartment = useRef(new Compartment());
   const onChangeRef = useRef(onChange);
   
   // Keep onChange ref up to date
@@ -126,15 +128,11 @@ export function CodeMirrorEditor({
       keymap.of([...defaultKeymap, ...historyKeymap]),
       updateListener(),
       EditorView.lineWrapping,
-      EditorState.readOnly.of(readOnly),
+      readOnlyCompartment.current.of(EditorState.readOnly.of(readOnly)),
     ];
 
     // Add theme
-    if (theme === "dark") {
-      extensions.push(oneDark, darkThemeOverrides);
-    } else {
-      extensions.push(lightTheme);
-    }
+    extensions.push(themeCompartment.current.of(theme === "dark" ? [oneDark, darkThemeOverrides] : lightTheme));
 
     // Add placeholder using CodeMirror's built-in placeholder extension
     if (placeholderText) {
@@ -157,7 +155,19 @@ export function CodeMirrorEditor({
       view.destroy();
       viewRef.current = null;
     };
-  }, [theme, readOnly]); // Recreate on theme/readOnly change
+  }, []); // Run once on mount
+
+  // Handle theme and readOnly changes without destroying the editor
+  useEffect(() => {
+    if (!viewRef.current) return;
+    
+    viewRef.current.dispatch({
+      effects: [
+        themeCompartment.current.reconfigure(theme === "dark" ? [oneDark, darkThemeOverrides] : lightTheme),
+        readOnlyCompartment.current.reconfigure(EditorState.readOnly.of(readOnly))
+      ]
+    });
+  }, [theme, readOnly]);
 
   // Update content when value prop changes externally
   useEffect(() => {

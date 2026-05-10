@@ -1,6 +1,6 @@
 [package]
 name = "context-studio"
-version = "1.1.0"
+version = "1.1.1"
 description = "Context Studio - AI-friendly project context aggregation tool"
 authors = ["you"]
 edition = "2021"

@@ -333,8 +333,8 @@ export function loadSessionState(): SessionState | null {
 }
 
 // Save session state to localStorage
-export function saveSessionState(rootPath: string, selectedPaths: string[]) {
-  localStorage.setItem("sessionState", JSON.stringify({ rootPath, selectedPaths }));
+export function saveSessionState(rootPath: string, selectedPaths: string[], orderedSelection: string[] = []) {
+  localStorage.setItem("sessionState", JSON.stringify({ rootPath, selectedPaths, orderedSelection }));
 }
 
 // Clear session state from localStorage

@@ -100,7 +100,7 @@ export const createFileSlice: StateCreator<
       });
       
       // Save session state
-      saveSessionState(path, []);
+      saveSessionState(path, [], []);
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : String(err),
@@ -130,6 +130,14 @@ export const createFileSlice: StateCreator<
       for (const p of pathsToToggle) {
         newSelected.delete(p);
       }
+      // Walk up the tree and deselect all parent directories.
+      // If a child is unchecked, its parent folder is no longer "fully selected".
+      let currentPath = path;
+      const separator = currentPath.includes('\\') ? '\\' : '/';
+      while (currentPath.includes(separator)) {
+        currentPath = currentPath.substring(0, currentPath.lastIndexOf(separator));
+        if (currentPath) newSelected.delete(currentPath);
+      }
       // Remove files from ordered selection
       newOrdered = newOrdered.filter(p => !filePathsToToggle.includes(p));
     } else {
@@ -150,7 +158,7 @@ export const createFileSlice: StateCreator<
     
     // Save session state
     if (rootPath) {
-      saveSessionState(rootPath, Array.from(newSelected));
+      saveSessionState(rootPath, Array.from(newSelected), newOrdered);
     }
     
     // Debounce the heavy lifting (file reading, token counting)
@@ -219,7 +227,7 @@ export const createFileSlice: StateCreator<
     
     // Save session state
     if (rootPath) {
-      saveSessionState(rootPath, Array.from(newSelected));
+      saveSessionState(rootPath, Array.from(newSelected), newOrdered);
     }
     
     // Debounce the heavy lifting (file reading, token counting)
@@ -239,7 +247,7 @@ export const createFileSlice: StateCreator<
       
       // Save session state
       if (rootPath) {
-        saveSessionState(rootPath, allPaths);
+        saveSessionState(rootPath, allPaths, allFilePaths);
       }
       
       // Debounce the heavy lifting
@@ -268,7 +276,7 @@ export const createFileSlice: StateCreator<
     
     // Save session state (empty selection)
     if (rootPath) {
-      saveSessionState(rootPath, []);
+      saveSessionState(rootPath, [], []);
     }
   },
 
@@ -345,8 +353,13 @@ export const createFileSlice: StateCreator<
   // Actions - Ordered Selection (Drag & Drop Reordering)
   // ---------------------------------------------------------------------------
   reorderSelection: (orderedPaths: string[]) => {
-    const { generateContext } = get();
+    const { generateContext, rootPath, selectedPaths } = get();
     set({ orderedSelection: orderedPaths });
+    
+    // Persist the new order
+    if (rootPath) {
+      saveSessionState(rootPath, Array.from(selectedPaths), orderedPaths);
+    }
     
     // Regenerate context with new order
     if (debounceTimer) clearTimeout(debounceTimer);

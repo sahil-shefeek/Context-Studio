@@ -28,6 +28,7 @@ export function MainContent() {
     setSelectedTemplate,
     getOutputWithTemplate,
     getOrderedSelectedFiles,
+    outputFormat,
     isExporting,
     setExporting,
     hasManualEdits,
@@ -45,6 +46,7 @@ export function MainContent() {
     setSelectedTemplate: s.setSelectedTemplate,
     getOutputWithTemplate: s.getOutputWithTemplate,
     getOrderedSelectedFiles: s.getOrderedSelectedFiles,
+    outputFormat: s.outputFormat,
     isExporting: s.isExporting,
     setExporting: s.setExporting,
     hasManualEdits: s.hasManualEdits,
@@ -126,11 +128,16 @@ export function MainContent() {
     const outputWithTemplate = getOutputWithTemplate();
     if (!outputWithTemplate) return;
     
+    const isXml = outputFormat === "xml";
+    
     setExporting(true);
     try {
       const filePath = await save({
-        filters: [{ name: "Markdown", extensions: ["md"] }],
-        defaultPath: "context.md",
+        filters: [{ 
+          name: isXml ? "XML Document" : "Markdown", 
+          extensions: [isXml ? "xml" : "md"] 
+        }],
+        defaultPath: isXml ? "context.xml" : "context.md",
       });
       
       if (filePath) {

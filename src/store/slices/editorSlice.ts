@@ -144,7 +144,13 @@ export const createEditorSlice: StateCreator<
           const relativePath = rootPath ? filePath.replace(rootPath, "").replace(/^\//, "") : filePath;
           const langId = getLanguageId(filePath);
           
-          const fileSection = `## File: ${relativePath}\n\n\`\`\`${langId}\n${content}\n\`\`\`\n\n`;
+          // Dynamically adjust fence length to avoid premature closure
+          // if the file content itself contains backtick sequences (e.g. README.md)
+          const backtickMatches = content.match(/`{3,}/g) || [];
+          const maxBackticks = Math.max(2, ...backtickMatches.map((m: string) => m.length));
+          const fence = "`".repeat(maxBackticks + 1);
+          
+          const fileSection = `## File: ${relativePath}\n\n${fence}${langId}\n${content}\n${fence}\n\n`;
           output += fileSection;
           
           // Count tokens for this file

@@ -34,10 +34,11 @@ export function FileTreeNode({ node, depth = 0, isExpanded = false, onToggleExpa
 
   const isSelected = selectedPaths.has(node.path);
   
-  // Check if any children are selected (for partial selection indicator)
-  const hasSelectedChildren = node.children?.some(
-    (child) => selectedPaths.has(child.path) || 
-    (child.children?.some(c => selectedPaths.has(c.path)))
+  // Check if any descendant (at any depth) is selected, using prefix matching.
+  // Append separator so "src/app" doesn't falsely match "src/app_old".
+  const folderPrefix = node.path + (navigator.platform.includes('Win') ? '\\' : '/');
+  const hasSelectedChildren = node.is_dir && Array.from(selectedPaths).some(
+    (selectedPath) => selectedPath.startsWith(folderPrefix)
   );
   
   const isPartiallySelected = !isSelected && hasSelectedChildren;

@@ -367,25 +367,10 @@ fn read_files_contents(
 ) -> Result<HashMap<String, String>, String> {
     let max_size = max_file_size_kb.map(|kb| kb * 1024).unwrap_or(DEFAULT_MAX_FILE_SIZE);
 
-    // Validate all paths against the allowed scope before reading any files
-    {
+    let root_path = {
         let scope_guard = allowed_scope.0.lock().unwrap();
-        let root = scope_guard.as_ref()
-            .ok_or_else(|| "No directory has been opened yet. Open a folder first.".to_string())?;
-
-        for file_path in &file_paths {
-            let path = Path::new(file_path);
-            // Canonicalize to resolve symlinks and `..` — defeats traversal
-            let canonical = path.canonicalize()
-                .map_err(|e| format!("Cannot resolve path '{}': {}", file_path, e))?;
-            if !canonical.starts_with(root) {
-                return Err(format!(
-                    "Access denied: '{}' is outside the allowed scope",
-                    file_path
-                ));
-            }
-        }
-    }
+        scope_guard.clone()
+    }.ok_or_else(|| "No directory has been opened yet. Open a folder first.".to_string())?;
 
     let mut contents: HashMap<String, String> = HashMap::new();
 
@@ -396,6 +381,20 @@ fn read_files_contents(
         if !path.exists() {
             contents.insert(file_path.clone(), "[File not found - may have been deleted or moved]".to_string());
             continue;
+        }
+
+        // Validate path against allowed scope AFTER checking existence
+        match path.canonicalize() {
+            Ok(canonical) => {
+                if !canonical.starts_with(&root_path) {
+                    contents.insert(file_path.clone(), "[Access denied: file is outside the allowed scope]".to_string());
+                    continue;
+                }
+            }
+            Err(e) => {
+                contents.insert(file_path.clone(), format!("[Cannot resolve path: {}]", e));
+                continue;
+            }
         }
 
         // Skip directories

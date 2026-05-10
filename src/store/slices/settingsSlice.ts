@@ -304,7 +304,7 @@ export const createSettingsSlice: StateCreator<
     const customTemplates = loadCustomTemplates();
     const updatedCustom = [...customTemplates, newTemplate];
     saveCustomTemplates(updatedCustom);
-    set({ promptTemplates: [...DEFAULT_TEMPLATES, ...updatedCustom] });
+    set({ promptTemplates: getAllTemplates() });
   },
 
   updateTemplate: (id: string, name: string, text: string) => {
@@ -324,13 +324,7 @@ export const createSettingsSlice: StateCreator<
       }
       saveCustomTemplates(customTemplates);
       
-      // Merge default templates with overrides
-      const mergedTemplates = DEFAULT_TEMPLATES.map(dt => {
-        const override = customTemplates.find(ct => ct.id === dt.id);
-        return override || dt;
-      });
-      const nonDefaultCustom = customTemplates.filter(ct => !DEFAULT_TEMPLATES.some(dt => dt.id === ct.id));
-      set({ promptTemplates: [...mergedTemplates, ...nonDefaultCustom] });
+      set({ promptTemplates: getAllTemplates() });
     } else {
       // For custom templates, update directly
       const customTemplates = loadCustomTemplates();
@@ -338,7 +332,7 @@ export const createSettingsSlice: StateCreator<
       if (index >= 0) {
         customTemplates[index] = { id, name, text, isDefault: false };
         saveCustomTemplates(customTemplates);
-        set({ promptTemplates: [...DEFAULT_TEMPLATES, ...customTemplates] });
+        set({ promptTemplates: getAllTemplates() });
       }
     }
   },
@@ -354,12 +348,7 @@ export const createSettingsSlice: StateCreator<
       const filtered = customTemplates.filter(t => t.id !== id);
       saveCustomTemplates(filtered);
       
-      const mergedTemplates = DEFAULT_TEMPLATES.map(dt => {
-        const override = filtered.find(ct => ct.id === dt.id);
-        return override || dt;
-      });
-      const nonDefaultCustom = filtered.filter(ct => !DEFAULT_TEMPLATES.some(dt => dt.id === ct.id));
-      set({ promptTemplates: [...mergedTemplates, ...nonDefaultCustom] });
+      set({ promptTemplates: getAllTemplates() });
       return;
     }
     
@@ -367,7 +356,7 @@ export const createSettingsSlice: StateCreator<
     const customTemplates = loadCustomTemplates();
     const filtered = customTemplates.filter(t => t.id !== id);
     saveCustomTemplates(filtered);
-    set({ promptTemplates: [...DEFAULT_TEMPLATES, ...filtered] });
+    set({ promptTemplates: getAllTemplates() });
     
     // If deleted template was selected, switch to "none"
     if (selectedTemplateId === id) {
@@ -426,6 +415,12 @@ export const createSettingsSlice: StateCreator<
         const allPaths = getAllPaths(tree);
         const validSelectedPaths = session.selectedPaths.filter(p => allPaths.includes(p));
         
+        // Restore ordered selection, filtered to valid paths
+        const validPathSet = new Set(allPaths);
+        const restoredOrder = (session.orderedSelection || []).filter(
+          (p: string) => validPathSet.has(p)
+        );
+        
         const { recentFolders, generateContext } = get();
         const updatedRecent = addToRecentFolders(session.rootPath, recentFolders);
         
@@ -433,6 +428,7 @@ export const createSettingsSlice: StateCreator<
           rootPath: session.rootPath,
           fileTree: tree,
           selectedPaths: new Set(validSelectedPaths),
+          orderedSelection: restoredOrder,
           isScanning: false,
           recentFolders: updatedRecent,
           sidebarCollapsed: false,

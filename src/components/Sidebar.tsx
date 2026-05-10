@@ -271,7 +271,7 @@ export function Sidebar() {
       )}
 
       {/* File Tree Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-hidden">
         {error && (
           <div className="p-3 m-2 rounded bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-400 text-xs">
             {error}

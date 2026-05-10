@@ -42,6 +42,7 @@ export interface PromptTemplate {
 export interface SessionState {
   rootPath: string;
   selectedPaths: string[];
+  orderedSelection: string[];
 }
 
 // =============================================================================

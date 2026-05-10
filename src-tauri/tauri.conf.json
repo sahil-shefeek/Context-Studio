@@ -42,6 +42,18 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/metainfo/com.sahil.context-studio.metainfo.xml": "com.sahil.context-studio.metainfo.xml"
+        }
+      },
+      "rpm": {
+        "files": {
+          "/usr/share/metainfo/com.sahil.context-studio.metainfo.xml": "com.sahil.context-studio.metainfo.xml"
+        }
+      }
+    }
   }
 }

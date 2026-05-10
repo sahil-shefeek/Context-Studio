@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.sahil.context-studio</id>
+  
+  <!-- License of this XML file itself -->
+  <metadata_license>CC0-1.0</metadata_license>
+  <!-- License of your application (e.g., MIT, GPL-3.0, or proprietary) -->
+  <project_license>MIT</project_license>
+  
+  <name>Context Studio</name>
+  <summary>AI-friendly project context aggregation tool</summary>
+  
+  <description>
+    <p>
+      Context Studio is a desktop application for assembling AI-friendly project context. 
+      It scans a local codebase, lets you selectively pick files, and outputs a well-formatted 
+      context document ready to paste into any LLM conversation.
+    </p>
+    <p>Key Features:</p>
+    <ul>
+      <li>Smart Ignore Engine matching .gitignore and framework presets</li>
+      <li>Privacy Filter to mask API keys and secrets</li>
+      <li>Drag-and-drop context organization for LLM attention</li>
+      <li>Live token counting powered by Tiktoken</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.sahil.context-studio.desktop</launchable>
+
+  <screenshots>
+    <screenshot type="default">
+      <!-- Replace with an actual URL to a screenshot hosted online -->
+      <image>https://raw.githubusercontent.com/sahil-shefeek/Context-Studio/main/screenshot1.png</image>
+    </screenshot>
+  </screenshots>
+
+  <developer_name>Sahil Shefeek</developer_name>
+  <url type="homepage">https://github.com/sahil-shefeek/Context-Studio</url>
+  <url type="bugtracker">https://github.com/sahil-shefeek/Context-Studio/issues</url>
+
+  <releases>
+    <release version="1.1.1" date="2026-05-10" />
+  </releases>
+</component>

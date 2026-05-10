@@ -922,11 +922,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Generate tree structure
       const treeText = generateTreeText(fileTree);
 
-      // Read file contents from Rust backend with max file size
-      const contents = await invoke<Record<string, string>>("read_files_contents", {
-        filePaths: selectedFilePaths,
-        maxFileSizeKb,
-      });
+      // Read file contents from Rust backend in batches to avoid massive IPC payloads.
+      // Without batching, 1000 files × 50KB = a 50MB JSON blob that freezes the browser.
+      const BATCH_SIZE = 50;
+      const contents: Record<string, string> = {};
+      for (let i = 0; i < selectedFilePaths.length; i += BATCH_SIZE) {
+        const batch = selectedFilePaths.slice(i, i + BATCH_SIZE);
+        const batchContents = await invoke<Record<string, string>>("read_files_contents", {
+          filePaths: batch,
+          maxFileSizeKb,
+        });
+        Object.assign(contents, batchContents);
+      }
 
       // Build the output and track per-file tokens
       let output = "";

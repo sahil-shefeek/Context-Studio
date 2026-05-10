@@ -1,5 +1,6 @@
 import { FileText, Plus, Edit2, Check, XCircle, RotateCcw } from "lucide-react";
 import { useAppStore, PromptTemplate } from "../../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { useState } from "react";
 import { Button, Input, Textarea } from "../ui";
 
@@ -10,7 +11,13 @@ export function TemplateSettings() {
     updateTemplate,
     deleteTemplate,
     resetTemplatesToDefault,
-  } = useAppStore();
+  } = useAppStore(useShallow((s) => ({
+    promptTemplates: s.promptTemplates,
+    addTemplate: s.addTemplate,
+    updateTemplate: s.updateTemplate,
+    deleteTemplate: s.deleteTemplate,
+    resetTemplatesToDefault: s.resetTemplatesToDefault,
+  })));
 
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [newTemplateName, setNewTemplateName] = useState("");

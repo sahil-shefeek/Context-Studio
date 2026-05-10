@@ -11,6 +11,7 @@ import {
   Eye,
 } from "lucide-react";
 import { useAppStore, FileNode } from "../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { Badge } from "./ui";
 
 interface FileTreeNodeProps {
@@ -20,7 +21,15 @@ interface FileTreeNodeProps {
 
 export function FileTreeNode({ node, depth = 0 }: FileTreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(depth < 2); // Auto-expand first 2 levels
-  const { selectedPaths, togglePathRange, openFilePreview, getFileTokenPercentage, getFolderTokenPercentage } = useAppStore();
+  const { selectedPaths, togglePathRange, openFilePreview, getFileTokenPercentage, getFolderTokenPercentage } = useAppStore(
+    useShallow((s) => ({
+      selectedPaths: s.selectedPaths,
+      togglePathRange: s.togglePathRange,
+      openFilePreview: s.openFilePreview,
+      getFileTokenPercentage: s.getFileTokenPercentage,
+      getFolderTokenPercentage: s.getFolderTokenPercentage,
+    }))
+  );
 
   const isSelected = selectedPaths.has(node.path);
   

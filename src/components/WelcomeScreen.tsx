@@ -1,5 +1,6 @@
 import { FolderOpen, Clock, X, BookOpen, Settings } from "lucide-react";
 import { useAppStore } from "../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { useMemo } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import logoImg from "../assets/logo-1-no-bg.png";
@@ -15,7 +16,13 @@ export function WelcomeScreen({ onOpenDocumentation }: WelcomeScreenProps) {
     removeRecentFolder,
     openSettings,
     scanDirectory,
-  } = useAppStore();
+  } = useAppStore(useShallow((s) => ({
+    recentFolders: s.recentFolders,
+    openRecentFolder: s.openRecentFolder,
+    removeRecentFolder: s.removeRecentFolder,
+    openSettings: s.openSettings,
+    scanDirectory: s.scanDirectory,
+  })));
 
   // Detect platform for keyboard shortcut display
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;

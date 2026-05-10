@@ -1,5 +1,6 @@
 import { Settings, Gauge, Filter, FileText, Info } from "lucide-react";
 import { useAppStore } from "../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { 
   Dialog, 
   DialogContent, 
@@ -16,7 +17,12 @@ import { GeneralSettings, ContextSettings, IgnoreSettings, TemplateSettings, Abo
 type SettingsTab = "general" | "context" | "ignore" | "templates" | "about";
 
 export function SettingsModal() {
-  const { isSettingsOpen, closeSettings } = useAppStore();
+  const { isSettingsOpen, closeSettings } = useAppStore(
+    useShallow((s) => ({
+      isSettingsOpen: s.isSettingsOpen,
+      closeSettings: s.closeSettings,
+    }))
+  );
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
 
   return (

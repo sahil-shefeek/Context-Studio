@@ -18,6 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, FileText, Sparkles, Brain } from "lucide-react";
 import { useAppStore } from "../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { Badge } from "./ui";
 
 interface SortableFileItemProps {
@@ -159,7 +160,13 @@ export function OrganizeContext() {
     fileTokenMap, 
     tokenCount,
     rootPath 
-  } = useAppStore();
+  } = useAppStore(useShallow((s) => ({
+    getOrderedSelectedFiles: s.getOrderedSelectedFiles,
+    reorderSelection: s.reorderSelection,
+    fileTokenMap: s.fileTokenMap,
+    tokenCount: s.tokenCount,
+    rootPath: s.rootPath,
+  })));
 
   const orderedFiles = getOrderedSelectedFiles();
   const totalFiles = orderedFiles.length;

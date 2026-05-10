@@ -1,5 +1,6 @@
-import { FileText, Copy, Download, Loader2, Check, Shield, ShieldCheck, PanelLeft, AlertTriangle, ListOrdered } from "lucide-react";
+import { FileText, Copy, Download, Loader2, Check, Shield, ShieldCheck, PanelLeft, AlertTriangle, ListOrdered, Edit3 } from "lucide-react";
 import { useAppStore } from "../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { useState } from "react";
 import { Button, Select } from "./ui";
 import { OrganizeContext } from "./OrganizeContext";
@@ -29,10 +30,30 @@ export function MainContent() {
     getOrderedSelectedFiles,
     isExporting,
     setExporting,
-  } = useAppStore();
+    hasManualEdits,
+  } = useAppStore(useShallow((s) => ({
+    fileTree: s.fileTree,
+    generatedOutput: s.generatedOutput,
+    isGenerating: s.isGenerating,
+    isRefreshing: s.isRefreshing,
+    isPrivacyFilterEnabled: s.isPrivacyFilterEnabled,
+    setPrivacyFilterEnabled: s.setPrivacyFilterEnabled,
+    sidebarCollapsed: s.sidebarCollapsed,
+    toggleSidebar: s.toggleSidebar,
+    promptTemplates: s.promptTemplates,
+    selectedTemplateId: s.selectedTemplateId,
+    setSelectedTemplate: s.setSelectedTemplate,
+    getOutputWithTemplate: s.getOutputWithTemplate,
+    getOrderedSelectedFiles: s.getOrderedSelectedFiles,
+    isExporting: s.isExporting,
+    setExporting: s.setExporting,
+    hasManualEdits: s.hasManualEdits,
+  })));
   
   const [copied, setCopied] = useState(false);
   const [showPrivacyWarning, setShowPrivacyWarning] = useState(false);
+  const [showManualEditWarning, setShowManualEditWarning] = useState(false);
+  const [pendingPrivacyAction, setPendingPrivacyAction] = useState<boolean | null>(null);
   const [showOrganizeView, setShowOrganizeView] = useState(false);
   const [showDocumentation, setShowDocumentation] = useState(false);
 
@@ -52,9 +73,20 @@ export function MainContent() {
 
   // Handle privacy filter toggle with confirmation
   const handlePrivacyToggle = () => {
+    const targetEnabled = !isPrivacyFilterEnabled;
+    
+    // If user has manual edits, show the manual-edit warning first
+    if (hasManualEdits && hasOutput) {
+      setPendingPrivacyAction(targetEnabled);
+      setShowManualEditWarning(true);
+      return;
+    }
+    
     if (isPrivacyFilterEnabled) {
+      // Turning OFF — show the standard "expose secrets" warning
       setShowPrivacyWarning(true);
     } else {
+      // Turning ON — safe, just do it
       setPrivacyFilterEnabled(true);
     }
   };
@@ -62,6 +94,20 @@ export function MainContent() {
   const confirmDisablePrivacy = () => {
     setPrivacyFilterEnabled(false);
     setShowPrivacyWarning(false);
+  };
+
+  const confirmManualEditToggle = () => {
+    if (pendingPrivacyAction !== null) {
+      if (!pendingPrivacyAction) {
+        // If we're about to disable privacy, also show the standard warning after
+        setShowManualEditWarning(false);
+        setShowPrivacyWarning(true);
+      } else {
+        setPrivacyFilterEnabled(pendingPrivacyAction);
+        setShowManualEditWarning(false);
+        setPendingPrivacyAction(null);
+      }
+    }
   };
 
   const handleCopy = async () => {
@@ -116,7 +162,7 @@ export function MainContent() {
 
   return (
     <main className="flex-1 flex flex-col h-full bg-(--bg-primary) relative">
-      {/* Privacy Warning Modal */}
+      {/* Privacy Warning Modal — standard "disable filter" confirmation */}
       {showPrivacyWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-(--bg-secondary) border border-(--border-color) rounded-lg p-6 max-w-md mx-4 shadow-xl">
@@ -133,7 +179,7 @@ export function MainContent() {
               Only disable this if you're sure your selected files don't contain secrets, or if you need to include them intentionally.
             </p>
             <div className="flex gap-2 justify-end">
-              <Button variant="ghost" size="sm" onClick={() => setShowPrivacyWarning(false)}>
+              <Button variant="ghost" size="sm" onClick={() => { setShowPrivacyWarning(false); setPendingPrivacyAction(null); }}>
                 Cancel
               </Button>
               <Button 
@@ -143,6 +189,38 @@ export function MainContent() {
                 className="bg-yellow-500 hover:bg-yellow-600 text-black"
               >
                 Disable Filter
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Edit Warning Modal — shown when toggling filter after user edits */}
+      {showManualEditWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-(--bg-secondary) border border-(--border-color) rounded-lg p-6 max-w-md mx-4 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-full bg-blue-500/20">
+                <Edit3 className="w-6 h-6 text-blue-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-(--text-primary)">Manual Edits Detected</h3>
+            </div>
+            <p className="text-sm text-(--text-secondary) mb-4">
+              You've manually edited the context since it was last generated. Toggling the privacy filter will use your <strong className="text-(--text-primary)">edited text</strong> as the source.
+            </p>
+            <p className="text-sm text-(--text-muted) mb-6">
+              Any previously redacted values cannot be restored — your edits become the new ground truth. To get the original content back, re-select files from the sidebar.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" size="sm" onClick={() => { setShowManualEditWarning(false); setPendingPrivacyAction(null); }}>
+                Cancel
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={confirmManualEditToggle}
+              >
+                Continue
               </Button>
             </div>
           </div>

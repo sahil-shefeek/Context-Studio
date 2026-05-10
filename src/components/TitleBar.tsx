@@ -8,7 +8,7 @@ import logoImg from "../assets/logo-1-no-bg.png";
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMacOS, setIsMacOS] = useState(false);
-  const { openSettings } = useAppStore();
+  const openSettings = useAppStore((s) => s.openSettings);
 
   // Manual drag handler for better cross-platform support (especially Linux)
   const handleMouseDown = useCallback(async (e: React.MouseEvent) => {

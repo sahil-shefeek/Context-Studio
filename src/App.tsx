@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { Sidebar, MainContent, TitleBar, FilePreviewModal, SettingsModal } from "./components";
 import { useAppStore } from "./store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Toaster } from "./components/ui";
 
@@ -15,7 +16,17 @@ function App() {
     getOutputWithTemplate,
     generatedOutput,
     scanDirectory,
-  } = useAppStore();
+  } = useAppStore(useShallow((s) => ({
+    theme: s.theme,
+    previewFile: s.previewFile,
+    closeFilePreview: s.closeFilePreview,
+    restoreSession: s.restoreSession,
+    openSettings: s.openSettings,
+    clearFileTree: s.clearFileTree,
+    getOutputWithTemplate: s.getOutputWithTemplate,
+    generatedOutput: s.generatedOutput,
+    scanDirectory: s.scanDirectory,
+  })));
 
   // Handle opening folder via keyboard shortcut
   const handleOpenFolder = useCallback(async () => {

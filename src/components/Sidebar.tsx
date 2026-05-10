@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAppStore, FileNode } from "../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { Button } from "./ui";
 import { FileTreeNode } from "./FileTreeNode";
 import { SearchInput } from "./SearchInput";
@@ -45,8 +46,33 @@ function filterTree(node: FileNode, query: string): FileNode | null {
 }
 
 export function Sidebar() {
-  const { fileTree, rootPath, isScanning, isGenerating, isRefreshing, error, scanDirectory, selectedPaths, sidebarCollapsed, toggleSidebar, clearFileTree, refreshDirectory } =
-    useAppStore();
+  const {
+    fileTree,
+    rootPath,
+    isScanning,
+    isGenerating,
+    isRefreshing,
+    error,
+    scanDirectory,
+    selectedPaths,
+    sidebarCollapsed,
+    toggleSidebar,
+    clearFileTree,
+    refreshDirectory,
+  } = useAppStore(useShallow((s) => ({
+    fileTree: s.fileTree,
+    rootPath: s.rootPath,
+    isScanning: s.isScanning,
+    isGenerating: s.isGenerating,
+    isRefreshing: s.isRefreshing,
+    error: s.error,
+    scanDirectory: s.scanDirectory,
+    selectedPaths: s.selectedPaths,
+    sidebarCollapsed: s.sidebarCollapsed,
+    toggleSidebar: s.toggleSidebar,
+    clearFileTree: s.clearFileTree,
+    refreshDirectory: s.refreshDirectory,
+  })));
   const [searchQuery, setSearchQuery] = useState("");
 
   // Filter tree based on search query

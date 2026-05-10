@@ -1,5 +1,6 @@
 import { Gauge, Code2 } from "lucide-react";
 import { useAppStore } from "../../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { useState, useEffect } from "react";
 import { Input, Separator } from "../ui";
 
@@ -12,7 +13,15 @@ export function ContextSettings() {
     outputFormat,
     setOutputFormat,
     isSettingsOpen,
-  } = useAppStore();
+  } = useAppStore(useShallow((s) => ({
+    targetContextWindow: s.targetContextWindow,
+    setTargetContextWindow: s.setTargetContextWindow,
+    maxFileSizeKb: s.maxFileSizeKb,
+    setMaxFileSizeKb: s.setMaxFileSizeKb,
+    outputFormat: s.outputFormat,
+    setOutputFormat: s.setOutputFormat,
+    isSettingsOpen: s.isSettingsOpen,
+  })));
 
   const [localContextWindow, setLocalContextWindow] = useState(targetContextWindow.toString());
   const [localMaxFileSize, setLocalMaxFileSize] = useState(maxFileSizeKb.toString());

@@ -1,5 +1,6 @@
 import { Filter, RefreshCw } from "lucide-react";
 import { useAppStore, FRAMEWORK_PRESETS } from "../../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { useState, useEffect } from "react";
 import { Button, Switch, Checkbox, Textarea, Separator } from "../ui";
 
@@ -18,7 +19,21 @@ export function IgnoreSettings() {
     frameworkPresets,
     toggleFrameworkPreset,
     isSettingsOpen,
-  } = useAppStore();
+  } = useAppStore(useShallow((s) => ({
+    customIgnorePatterns: s.customIgnorePatterns,
+    setCustomIgnorePatterns: s.setCustomIgnorePatterns,
+    rootPath: s.rootPath,
+    scanDirectory: s.scanDirectory,
+    respectGitignore: s.respectGitignore,
+    setRespectGitignore: s.setRespectGitignore,
+    respectDockerignore: s.respectDockerignore,
+    setRespectDockerignore: s.setRespectDockerignore,
+    respectAiignore: s.respectAiignore,
+    setRespectAiignore: s.setRespectAiignore,
+    frameworkPresets: s.frameworkPresets,
+    toggleFrameworkPreset: s.toggleFrameworkPreset,
+    isSettingsOpen: s.isSettingsOpen,
+  })));
 
   const [localIgnorePatterns, setLocalIgnorePatterns] = useState(customIgnorePatterns);
   const [patternsChanged, setPatternsChanged] = useState(false);

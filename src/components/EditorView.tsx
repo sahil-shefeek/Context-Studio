@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { useAppStore, PromptTemplate } from "../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { useState, useCallback } from "react";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
 
@@ -13,7 +14,11 @@ export function EditorView({ selectedTemplate, hasActiveTemplate }: EditorViewPr
     generatedOutput,
     resolvedTheme,
     setGeneratedOutput,
-  } = useAppStore();
+  } = useAppStore(useShallow((s) => ({
+    generatedOutput: s.generatedOutput,
+    resolvedTheme: s.resolvedTheme,
+    setGeneratedOutput: s.setGeneratedOutput,
+  })));
   
   const [isTemplateExpanded, setIsTemplateExpanded] = useState(true);
 

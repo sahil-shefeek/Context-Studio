@@ -1,5 +1,6 @@
 import { Trash2, FolderOpen, Palette } from "lucide-react";
 import { useAppStore } from "../../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { Button, Switch, Separator } from "../ui";
 
 export function GeneralSettings() {
@@ -11,7 +12,15 @@ export function GeneralSettings() {
     setTheme,
     restoreSessionOnStartup,
     setRestoreSessionOnStartup,
-  } = useAppStore();
+  } = useAppStore(useShallow((s) => ({
+    recentFolders: s.recentFolders,
+    clearAllRecentFolders: s.clearAllRecentFolders,
+    clearAllStorage: s.clearAllStorage,
+    theme: s.theme,
+    setTheme: s.setTheme,
+    restoreSessionOnStartup: s.restoreSessionOnStartup,
+    setRestoreSessionOnStartup: s.setRestoreSessionOnStartup,
+  })));
 
   const handleClearAll = () => {
     if (confirm("Are you sure you want to clear all stored data? This will remove recent folders and session state.")) {

@@ -1,4 +1,5 @@
 import { useAppStore } from "../store/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { Badge } from "./ui";
 
 export function ContextFooter() {
@@ -9,7 +10,14 @@ export function ContextFooter() {
     getContextPercentage,
     getContextStatus,
     targetContextWindow,
-  } = useAppStore();
+  } = useAppStore(useShallow((s) => ({
+    fileTree: s.fileTree,
+    generatedOutput: s.generatedOutput,
+    tokenCount: s.tokenCount,
+    getContextPercentage: s.getContextPercentage,
+    getContextStatus: s.getContextStatus,
+    targetContextWindow: s.targetContextWindow,
+  })));
 
   const hasProject = !!fileTree;
   const contextPercentage = getContextPercentage();
